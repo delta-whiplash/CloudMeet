@@ -13,6 +13,7 @@
     "db:init:remote": "wrangler d1 execute cloudmeet --file=./schema.sql",
     "deploy": "npm run build && wrangler pages deploy .svelte-kit/cloudflare",
     "verify-deployment": "node scripts/verify-deployment.js",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "prebuild": "node scripts/prebuild.js"
@@ -39,8 +40,10 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
     "@types/validator": "^13.15.10",
+    "fast-check": "^4.9.0",
     "svelte": "^5.56.8",
-    "typescript": "^7.0.2",
+    "svelte-check": "^4.7.5",
+    "typescript": "^5.9.3",
     "vite": "^8.2.1",
     "vitest": "^4.1.10",
     "wrangler": "^4.120.1"

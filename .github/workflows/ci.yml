@@ -33,6 +33,9 @@ jobs:
       - name: Verify configuration & deployment setup
         run: pnpm run verify-deployment
 
+      - name: Run Svelte component type check
+        run: pnpm run check
+
       - name: Run Vitest test suite
         run: pnpm test
 

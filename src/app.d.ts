@@ -11,6 +11,8 @@ declare global {
 				GOOGLE_CLIENT_SECRET: string;
 				JWT_SECRET: string;
 				BASE_URL: string;
+				MICROSOFT_CLIENT_ID?: string;
+				MICROSOFT_CLIENT_SECRET?: string;
 				APP_URL?: string;
 				ADMIN_EMAIL?: string;
 				EMAILIT_API_KEY?: string;
