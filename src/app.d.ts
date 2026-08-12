@@ -24,6 +24,7 @@ declare global {
 			caches: CacheStorage & { default: Cache };
 		}
 		interface Locals {
+			requestId?: string;
 			user?: {
 				id: string;
 				email: string;

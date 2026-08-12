@@ -143,10 +143,56 @@ Once configured, users can connect their Outlook calendar from the dashboard:
 
 ```bash
 cp .env.example .dev.vars  # Add your credentials
-npm install
-npm run db:init
-npm run dev
+pnpm install
+pnpm run verify-deployment # Verify configuration & wrangler setup
+pnpm run db:init          # Execute schema.sql for local D1 database
+pnpm run dev
 ```
+
+## Database Setup & Remote Initialization
+
+For a fresh deployment, ensure the D1 database tables are created:
+
+```bash
+# Initialize local D1 database schema
+pnpm run db:init
+
+# Initialize remote Cloudflare D1 database schema
+pnpm run db:init:remote
+```
+
+If tables are missing, the server will log a clear diagnostic error and `/api/health` will report a schema warning.
+
+## Self-Hosting Diagnostics & Observability
+
+CloudMeet includes built-in observability features to diagnose self-hosting or deployment issues:
+
+- **Health Check Endpoint (`/api/health`)**: Returns structured JSON verifying D1 database connection, schema table existence, KV namespace availability, and key environment variables.
+- **Deployment Verification Script**: Run `pnpm run verify-deployment` to check `wrangler.toml` bindings, secret formats (detecting accidental trailing newlines), and required files before deploying.
+- **Request Tracing**: All HTTP responses include an `X-Request-Id` header to correlate client requests with server logs.
+
+## Frequently Asked Questions & Architecture
+
+<details>
+<summary><strong>Does CloudMeet support recurring scheduling?</strong></summary>
+
+Yes! CloudMeet manages recurring availability through weekly schedule rules (`availability_rules` table), mapping days of the week (0 = Sunday to 6 = Saturday) with start and end times. Custom single-day blocks or adjustments are handled via `availability_overrides`.
+</details>
+
+<details>
+<summary><strong>How are Event Types and Dashboard configured?</strong></summary>
+
+Users can create and manage event types in the **Dashboard** (`/dashboard/event-types`). Each event type gets its own unique slug (accessible at `https://your-domain.com/[slug]`), duration, buffer times, location (Google Meet, Teams, phone, in-person), and calendar invite preferences.
+</details>
+
+<details>
+<summary><strong>Where should I look to customize meeting logic or UI?</strong></summary>
+
+- **Booking Flow & Availability**: `src/routes/api/availability/+server.ts` and `src/routes/[slug]/+page.svelte`
+- **Calendar Synchronization**: `src/lib/server/google-calendar.ts` and `src/lib/server/outlook-calendar.ts`
+- **Dashboard & Event Management**: `src/routes/dashboard/` and `src/lib/components/dashboard/`
+- **Database Schema**: `schema.sql`
+</details>
 
 ## License
 
