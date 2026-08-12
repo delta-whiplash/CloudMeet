@@ -25,8 +25,8 @@ export function shouldReturn304(ifNoneMatch: string | null, currentETag: string)
 
 export async function getCachedResponse(request: Request): Promise<Response | null> {
 	try {
-		if (typeof caches !== 'undefined' && caches.default) {
-			const cache = caches.default;
+		if (typeof caches !== 'undefined' && (caches as any).default) {
+			const cache = (caches as any).default;
 			const match = await cache.match(request);
 			if (match) return match;
 		}
@@ -42,8 +42,8 @@ export async function cacheResponse(
 	ttlSeconds = 60
 ): Promise<void> {
 	try {
-		if (typeof caches !== 'undefined' && caches.default) {
-			const cache = caches.default;
+		if (typeof caches !== 'undefined' && (caches as any).default) {
+			const cache = (caches as any).default;
 			const cachedResponse = new Response(response.body, response);
 			cachedResponse.headers.set('Cache-Control', `public, max-age=${ttlSeconds}, s-maxage=${ttlSeconds}`);
 			await cache.put(request, cachedResponse);

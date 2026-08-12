@@ -159,10 +159,12 @@ export const actions: Actions = {
 				const calendarEvent = await createCalendarEvent(accessToken, {
 					summary: `${proposal.event_name} with ${proposal.attendee_name}`,
 					description: proposal.attendee_notes || '',
-					startTime: proposal.proposed_start_time,
-					endTime: proposal.proposed_end_time,
-					attendeeEmail: proposal.attendee_email,
-					hostEmail: proposal.host_email
+					start: { dateTime: proposal.proposed_start_time, timeZone: 'UTC' },
+					end: { dateTime: proposal.proposed_end_time, timeZone: 'UTC' },
+					attendees: [
+						{ email: proposal.attendee_email },
+						{ email: proposal.host_email }
+					]
 				});
 
 				newGoogleEventId = calendarEvent.id;

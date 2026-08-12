@@ -41,8 +41,8 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 		// Exchange code for tokens
 		const tokens = await exchangeOutlookCode(
 			code,
-			env.MICROSOFT_CLIENT_ID,
-			env.MICROSOFT_CLIENT_SECRET,
+			env.MICROSOFT_CLIENT_ID || '',
+			env.MICROSOFT_CLIENT_SECRET || '',
 			redirectUri
 		);
 

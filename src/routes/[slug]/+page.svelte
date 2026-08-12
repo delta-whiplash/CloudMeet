@@ -265,7 +265,7 @@
 	class="min-h-screen bg-white md:bg-gray-100 flex flex-col items-center md:justify-center md:p-4"
 	style="--brand-color: {brandColor}; --brand-light: {colors.light}; --brand-lighter: {colors.lighter}; --brand-dark: {colors.dark}; --brand-rgb: {colors.rgb.r}, {colors.rgb.g}, {colors.rgb.b};"
 >
-	{#if bookingStatus === 'success'}
+	{#if bookingStatus === 'success' && selectedDate && selectedSlot}
 		<!-- Success Screen -->
 		<BookingSuccess
 			eventName={data.eventType?.name || 'Meeting'}
