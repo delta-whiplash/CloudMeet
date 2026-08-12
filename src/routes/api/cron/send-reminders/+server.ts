@@ -1,13 +1,10 @@
 /**
- * Cron endpoint for sending scheduled reminder emails
- * Should be called periodically (e.g., every 5 minutes) via external cron service
- * or Cloudflare Workers Cron Triggers
- *
- * Security: Uses a secret token to prevent unauthorized calls
+ * Cron endpoint for sending scheduled reminder emails (Optimized with Smart Fast-Exit)
  */
 
 import { json, error, type RequestEvent } from '@sveltejs/kit';
 import { sendReminderEmail, getEmailTemplates, type EmailTemplateType } from '$lib/server/email';
+import { shouldSkipCronExecution } from '$lib/server/cron-optimizer';
 
 export const GET = async ({ url, platform }: RequestEvent) => {
 	const env = platform?.env;
@@ -15,17 +12,38 @@ export const GET = async ({ url, platform }: RequestEvent) => {
 		throw error(500, 'Platform env not available');
 	}
 
-	// Verify cron secret (optional - for security when exposed to internet)
+	// Verify cron secret
 	const cronSecret = url.searchParams.get('secret');
 	if (env.CRON_SECRET && cronSecret !== env.CRON_SECRET) {
 		throw error(401, 'Unauthorized');
 	}
 
-	const db = env.DB;
 	const now = new Date();
 
+	// 1. Fast-Exit Check via KV Timestamp
+	if (env.KV) {
+		try {
+			const nextScheduledStr = await env.KV.get('next_scheduled_email_timestamp');
+			if (nextScheduledStr) {
+				const nextScheduledMs = new Date(nextScheduledStr).getTime();
+				if (shouldSkipCronExecution(now.getTime(), nextScheduledMs)) {
+					return json({
+						success: true,
+						timestamp: now.toISOString(),
+						skipped_fast_exit: true,
+						next_scheduled: nextScheduledStr
+					});
+				}
+			}
+		} catch (err) {
+			console.warn('KV cron optimizer read error:', err);
+		}
+	}
+
+	const db = env.DB;
+
 	try {
-		// Get pending emails that are scheduled to be sent now or in the past
+		// Get pending emails
 		const pendingEmails = await db
 			.prepare(`
 				SELECT se.id, se.booking_id, se.template_type, se.scheduled_for,
@@ -76,7 +94,6 @@ export const GET = async ({ url, platform }: RequestEvent) => {
 			results.processed++;
 
 			try {
-				// Skip if the meeting has already passed
 				const meetingStart = new Date(email.start_time);
 				if (meetingStart < now) {
 					await db
@@ -87,11 +104,9 @@ export const GET = async ({ url, platform }: RequestEvent) => {
 					continue;
 				}
 
-				// Get user's email templates to check if still enabled and get custom settings
 				const templates = await getEmailTemplates(db, email.user_id);
 				const template = templates.get(email.template_type as EmailTemplateType);
 
-				// Skip if template is disabled
 				if (template && !template.is_enabled) {
 					await db
 						.prepare(`UPDATE scheduled_emails SET status = 'cancelled', error_message = 'Template disabled' WHERE id = ?`)
@@ -101,9 +116,7 @@ export const GET = async ({ url, platform }: RequestEvent) => {
 					continue;
 				}
 
-				// Send the reminder email
 				if (env.EMAILIT_API_KEY) {
-					// Parse user settings for time format
 					let timeFormat: '12h' | '24h' = '12h';
 					try {
 						const settings = email.settings ? JSON.parse(email.settings) : {};
@@ -141,14 +154,12 @@ export const GET = async ({ url, platform }: RequestEvent) => {
 						template?.subject || undefined
 					);
 
-					// Mark as sent
 					await db
 						.prepare(`UPDATE scheduled_emails SET status = 'sent', sent_at = CURRENT_TIMESTAMP WHERE id = ?`)
 						.bind(email.id)
 						.run();
 					results.sent++;
 				} else {
-					// No email config - mark as failed
 					await db
 						.prepare(`UPDATE scheduled_emails SET status = 'failed', error_message = 'Email API not configured' WHERE id = ?`)
 						.bind(email.id)
@@ -163,6 +174,23 @@ export const GET = async ({ url, platform }: RequestEvent) => {
 					.run();
 				results.failed++;
 				results.errors.push(`Email ${email.id}: ${err.message}`);
+			}
+		}
+
+		// Update next_scheduled_email_timestamp for subsequent fast-exits
+		if (env.KV) {
+			try {
+				const nextEmail = await db
+					.prepare(`SELECT scheduled_for FROM scheduled_emails WHERE status = 'pending' ORDER BY scheduled_for ASC LIMIT 1`)
+					.first<{ scheduled_for: string }>();
+
+				if (nextEmail?.scheduled_for) {
+					await env.KV.put('next_scheduled_email_timestamp', nextEmail.scheduled_for);
+				} else {
+					await env.KV.delete('next_scheduled_email_timestamp');
+				}
+			} catch (err) {
+				console.warn('KV cron optimizer write error:', err);
 			}
 		}
 
