@@ -1,11 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @layer base {
 	:root {
-		--color-primary: theme('colors.blue.600');
-		--color-primary-hover: theme('colors.blue.700');
+		--color-primary: #2563eb;
+		--color-primary-hover: #1d4ed8;
 	}
 }
 
