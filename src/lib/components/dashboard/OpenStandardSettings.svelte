@@ -43,6 +43,7 @@
 	// UI feedback
 	let saving = $state(false);
 	let testingCaldav = $state(false);
+	let testingCarddav = $state(false);
 	let testingSmtp = $state(false);
 	let message = $state({ text: '', type: 'info' as 'success' | 'error' | 'info' });
 
@@ -102,6 +103,28 @@
 			message = { text: 'CalDAV connection test failed', type: 'error' };
 		} finally {
 			testingCaldav = false;
+		}
+	}
+
+	async function testCarddav() {
+		testingCarddav = true;
+		message = { text: 'Testing CardDAV connection...', type: 'info' };
+		try {
+			const res = await fetch('/api/integrations/test-carddav', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					serverUrl: carddavUrl,
+					username: carddavUsername,
+					password: carddavPassword
+				})
+			});
+			const data = await res.json() as { success: boolean; message: string };
+			message = { text: data.message, type: data.success ? 'success' : 'error' };
+		} catch (err) {
+			message = { text: 'CardDAV connection test failed', type: 'error' };
+		} finally {
+			testingCarddav = false;
 		}
 	}
 
@@ -243,6 +266,14 @@
 					/>
 				</div>
 			</div>
+			<button
+				type="button"
+				onclick={testCarddav}
+				disabled={testingCarddav || !carddavUrl || !carddavUsername || !carddavPassword}
+				class="rounded-lg border border-primary px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary-muted disabled:opacity-50"
+			>
+				{testingCarddav ? 'Testing...' : 'Test CardDAV Connection'}
+			</button>
 		</div>
 
 		<!-- SMTP Email Integration -->
