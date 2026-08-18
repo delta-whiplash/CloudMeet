@@ -4,6 +4,7 @@ build/
 .cloudflare/
 .env
 .env.*
+.dev.vars
 !.env.example
 .wrangler/
 dist/
@@ -12,3 +13,8 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+test-results/
+playwright-report/
+.design-screens/
+.playwright-mcp/
+.zcode/
