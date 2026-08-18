@@ -43,6 +43,10 @@ export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 		throw error(500, 'Missing OAuth configuration');
 	}
 
+	if (!env.JWT_SECRET) {
+		throw error(500, 'Server misconfigured: JWT_SECRET is not set');
+	}
+
 	try {
 		// Exchange code for tokens
 		const redirectUri = `${appUrl}/auth/callback`;

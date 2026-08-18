@@ -5,6 +5,16 @@
 
 import type { RequestEvent } from '@sveltejs/kit';
 
+/**
+ * Insecure development-only secret. Only ever used when DASHBOARD_DEMO=1
+ * (local dev / CI); production must set JWT_SECRET.
+ */
+const DEV_JWT_SECRET = 'dev-jwt-secret-key-cloudmeet-local';
+
+function isDemoEnabled(env: App.Platform['env'] | undefined): boolean {
+	return env?.DASHBOARD_DEMO === '1';
+}
+
 export interface GoogleTokenResponse {
 	access_token: string;
 	refresh_token?: string;
@@ -124,8 +134,9 @@ export async function getGoogleUserInfo(accessToken: string): Promise<GoogleUser
  */
 export async function createSessionToken(
 	userId: string,
-	secret: string
+	secret?: string
 ): Promise<string> {
+	const effectiveSecret = secret ?? DEV_JWT_SECRET;
 	const payload = {
 		userId,
 		iat: Date.now()
@@ -133,7 +144,7 @@ export async function createSessionToken(
 
 	// Simple base64 encoding with signature
 	const data = btoa(JSON.stringify(payload));
-	const signature = await hashString(`${data}.${secret}`);
+	const signature = await hashString(`${data}.${effectiveSecret}`);
 
 	return `${data}.${signature}`;
 }
@@ -143,11 +154,12 @@ export async function createSessionToken(
  */
 export async function verifySessionToken(
 	token: string,
-	secret: string
+	secret?: string
 ): Promise<{ userId: string } | null> {
 	try {
+		const effectiveSecret = secret ?? DEV_JWT_SECRET;
 		const [data, signature] = token.split('.');
-		const expectedSignature = await hashString(`${data}.${secret}`);
+		const expectedSignature = await hashString(`${data}.${effectiveSecret}`);
 
 		if (signature !== expectedSignature) {
 			return null;
@@ -189,13 +201,78 @@ export async function getCurrentUser(
 		return null;
 	}
 
-	const jwtSecret = event.platform?.env?.JWT_SECRET;
+	// Fail closed: without a real JWT_SECRET, sessions only validate in demo mode.
+	const jwtSecret =
+		event.platform?.env?.JWT_SECRET || (isDemoEnabled(event.platform?.env) ? DEV_JWT_SECRET : null);
 	if (!jwtSecret) {
 		return null;
 	}
 
 	const session = await verifySessionToken(sessionToken, jwtSecret);
 	return session?.userId ?? null;
+}
+
+/**
+ * Create a demo/dev session for local testing when Google OAuth is not configured
+ */
+export async function createDevSession(
+	platform: App.Platform | undefined,
+	cookies: any
+): Promise<string> {
+	const db = platform?.env?.DB;
+	if (!db) {
+		throw new Error('Database binding (DB) is not available');
+	}
+
+	const email = 'demo-admin@cloudmeet.local';
+	let user = await db.prepare('SELECT id FROM users WHERE email = ?').bind(email).first<{ id: string }>();
+
+	let userId: string;
+	if (!user) {
+		userId = crypto.randomUUID();
+		await db
+			.prepare(
+				`INSERT INTO users (id, email, name, slug, created_at)
+				 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`
+			)
+			.bind(userId, email, 'Admin Demo', 'demo-admin')
+			.run();
+
+		// Add default availability (Mon-Fri 9-17)
+		for (let day = 1; day <= 5; day++) {
+			await db
+				.prepare(
+					`INSERT OR IGNORE INTO availability_rules (id, user_id, day_of_week, start_time, end_time, is_active)
+					 VALUES (?, ?, ?, '09:00', '17:00', 1)`
+				)
+				.bind(crypto.randomUUID(), userId, day)
+				.run();
+		}
+
+		// Add default event type
+		await db
+			.prepare(
+				`INSERT OR IGNORE INTO event_types (id, user_id, name, slug, duration_minutes, description, is_active)
+				 VALUES (?, ?, '30 Min Meeting', '30min', 30, 'Standard 30-minute consultation', 1)`
+			)
+			.bind(crypto.randomUUID(), userId)
+			.run();
+	} else {
+		userId = user.id;
+	}
+
+	const jwtSecret = platform?.env?.JWT_SECRET || DEV_JWT_SECRET;
+	const sessionToken = await createSessionToken(userId, jwtSecret);
+
+	cookies.set('session', sessionToken, {
+		path: '/',
+		httpOnly: true,
+		secure: false,
+		sameSite: 'lax',
+		maxAge: 60 * 60 * 24 * 7
+	});
+
+	return userId;
 }
 
 /**
@@ -208,3 +285,4 @@ export async function requireAuth(event: RequestEvent): Promise<string> {
 	}
 	return userId;
 }
+
