@@ -19,6 +19,13 @@ declare global {
 				EMAIL_FROM?: string;
 				TURNSTILE_SECRET_KEY?: string;
 				CRON_SECRET?: string;
+				DASHBOARD_DEMO?: string;
+				SMTP_HOST?: string;
+				SMTP_PORT?: string;
+				SMTP_USER?: string;
+				SMTP_PASS?: string;
+				SMTP_SECURE?: string;
+				SMTP_FROM?: string;
 			};
 			context: {
 				waitUntil(promise: Promise<any>): void;
