@@ -1,6 +1,6 @@
 /**
  * Profile API endpoint
- * Handles profile updates including name and image
+ * Handles profile updates including name, image, and CalDAV/CardDAV/SMTP integration settings.
  */
 
 import { json, error } from '@sveltejs/kit';
@@ -29,12 +29,49 @@ export const PUT: RequestHandler = async (event) => {
 			contactEmail?: string | null;
 			timeFormat?: '12h' | '24h';
 			// Global calendar settings
-			defaultAvailabilityCalendars?: 'google' | 'outlook' | 'both';
-			defaultInviteCalendar?: 'google' | 'outlook';
-			// Selected calendars for availability checking
+			defaultAvailabilityCalendars?: 'google' | 'outlook' | 'caldav' | 'both' | 'all';
+			defaultInviteCalendar?: 'google' | 'outlook' | 'caldav';
 			selectedGoogleCalendars?: string[];
+			// CalDAV settings
+			caldavUrl?: string | null;
+			caldavUsername?: string | null;
+			caldavPassword?: string | null;
+			caldavCalendarPath?: string | null;
+			// CardDAV settings
+			carddavUrl?: string | null;
+			carddavUsername?: string | null;
+			carddavPassword?: string | null;
+			// SMTP settings
+			smtpHost?: string | null;
+			smtpPort?: number | null;
+			smtpUsername?: string | null;
+			smtpPassword?: string | null;
+			smtpSecure?: boolean | null;
+			smtpFrom?: string | null;
 		};
-		const { name, profileImage, brandColor, contactEmail, timeFormat, defaultAvailabilityCalendars, defaultInviteCalendar, selectedGoogleCalendars } = body;
+		const {
+			name,
+			profileImage,
+			brandColor,
+			contactEmail,
+			timeFormat,
+			defaultAvailabilityCalendars,
+			defaultInviteCalendar,
+			selectedGoogleCalendars,
+			caldavUrl,
+			caldavUsername,
+			caldavPassword,
+			caldavCalendarPath,
+			carddavUrl,
+			carddavUsername,
+			carddavPassword,
+			smtpHost,
+			smtpPort,
+			smtpUsername,
+			smtpPassword,
+			smtpSecure,
+			smtpFrom
+		} = body;
 
 		// Get existing settings
 		const existingUser = await db
@@ -47,6 +84,49 @@ export const PUT: RequestHandler = async (event) => {
 			existingSettings = existingUser?.settings ? JSON.parse(existingUser.settings) : {};
 		} catch {
 			existingSettings = {};
+		}
+
+		// Update CalDAV/CardDAV/SMTP integration columns if provided
+		if (
+			caldavUrl !== undefined ||
+			carddavUrl !== undefined ||
+			smtpHost !== undefined
+		) {
+			await db
+				.prepare(
+					`UPDATE users SET
+						caldav_url = COALESCE(?, caldav_url),
+						caldav_username = COALESCE(?, caldav_username),
+						caldav_password = COALESCE(?, caldav_password),
+						caldav_calendar_path = COALESCE(?, caldav_calendar_path),
+						carddav_url = COALESCE(?, carddav_url),
+						carddav_username = COALESCE(?, carddav_username),
+						carddav_password = COALESCE(?, carddav_password),
+						smtp_host = COALESCE(?, smtp_host),
+						smtp_port = COALESCE(?, smtp_port),
+						smtp_username = COALESCE(?, smtp_username),
+						smtp_password = COALESCE(?, smtp_password),
+						smtp_secure = COALESCE(?, smtp_secure),
+						smtp_from = COALESCE(?, smtp_from)
+					WHERE id = ?`
+				)
+				.bind(
+					caldavUrl,
+					caldavUsername,
+					caldavPassword,
+					caldavCalendarPath,
+					carddavUrl,
+					carddavUsername,
+					carddavPassword,
+					smtpHost,
+					smtpPort,
+					smtpUsername,
+					smtpPassword,
+					smtpSecure !== undefined ? (smtpSecure ? 1 : 0) : null,
+					smtpFrom,
+					userId
+				)
+				.run();
 		}
 
 		// If this is a calendar settings update (no name provided)
@@ -69,6 +149,10 @@ export const PUT: RequestHandler = async (event) => {
 
 		// Profile update with name
 		if (!name || name.trim().length === 0) {
+			// If name wasn't sent but integration parameters were updated, return success
+			if (caldavUrl !== undefined || carddavUrl !== undefined || smtpHost !== undefined) {
+				return json({ success: true });
+			}
 			throw error(400, 'Name is required');
 		}
 
@@ -80,9 +164,9 @@ export const PUT: RequestHandler = async (event) => {
 
 		// Validate brand color if provided
 		const colorRegex = /^#[0-9A-Fa-f]{6}$/;
-		const validBrandColor = brandColor && colorRegex.test(brandColor) ? brandColor : '#3b82f6';
+		const validBrandColor = brandColor && colorRegex.test(brandColor) ? brandColor : '#7a5828';
 
-		// Validate contact email if provided (use robust email validation)
+		// Validate contact email if provided
 		let validContactEmail: string | null = null;
 		if (contactEmail) {
 			if (!isValidEmail(contactEmail)) {
@@ -144,7 +228,6 @@ export const POST: RequestHandler = async (event) => {
 		const buffer = await file.arrayBuffer();
 		const bytes = new Uint8Array(buffer);
 
-		// Convert to base64 in chunks to avoid stack overflow
 		let binary = '';
 		const chunkSize = 8192;
 		for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -154,7 +237,6 @@ export const POST: RequestHandler = async (event) => {
 		const base64 = btoa(binary);
 		const dataUrl = `data:${file.type};base64,${base64}`;
 
-		// Update profile image
 		await env.DB
 			.prepare('UPDATE users SET profile_image = ? WHERE id = ?')
 			.bind(dataUrl, userId)

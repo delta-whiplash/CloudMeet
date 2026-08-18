@@ -13,7 +13,20 @@ CREATE TABLE IF NOT EXISTS users (
     settings JSON DEFAULT '{}',
     profile_image TEXT,
     brand_color TEXT DEFAULT '#3b82f6',
-    contact_email TEXT
+    contact_email TEXT,
+    caldav_url TEXT,
+    caldav_username TEXT,
+    caldav_password TEXT,
+    caldav_calendar_path TEXT,
+    carddav_url TEXT,
+    carddav_username TEXT,
+    carddav_password TEXT,
+    smtp_host TEXT,
+    smtp_port INTEGER DEFAULT 587,
+    smtp_username TEXT,
+    smtp_password TEXT,
+    smtp_secure BOOLEAN DEFAULT 0,
+    smtp_from TEXT
 );
 
 CREATE INDEX idx_users_slug ON users(slug);
@@ -87,6 +100,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     attendee_notes TEXT,
     google_event_id TEXT,
     outlook_event_id TEXT,
+    caldav_event_id TEXT,
     meeting_url TEXT,
     status TEXT DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'canceled', 'rescheduled')),
     canceled_at DATETIME,
