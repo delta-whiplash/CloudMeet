@@ -240,9 +240,8 @@ export function getOpenApiSpec(appUrl: string = 'https://cloudmeet.pages.dev'): 
 					tags: ['Availability'],
 					summary: 'Query Daily Available Time Slots',
 					parameters: [
-						{ name: 'slug', in: 'query', required: true, schema: { type: 'string' }, description: 'Event type slug' },
-						{ name: 'date', in: 'query', required: true, schema: { type: 'string', format: 'date' }, description: 'Date in YYYY-MM-DD format' },
-						{ name: 'timezone', in: 'query', required: false, schema: { type: 'string' }, description: 'Visitor timezone' }
+						{ name: 'event', in: 'query', required: true, schema: { type: 'string' }, description: 'Event type slug' },
+						{ name: 'date', in: 'query', required: true, schema: { type: 'string', format: 'date' }, description: 'Date in YYYY-MM-DD format' }
 					],
 					responses: {
 						200: {
@@ -270,9 +269,8 @@ export function getOpenApiSpec(appUrl: string = 'https://cloudmeet.pages.dev'): 
 					tags: ['Availability'],
 					summary: 'Query Monthly Available Dates',
 					parameters: [
-						{ name: 'slug', in: 'query', required: true, schema: { type: 'string' } },
-						{ name: 'year', in: 'query', required: true, schema: { type: 'integer' } },
-						{ name: 'month', in: 'query', required: true, schema: { type: 'integer' } }
+						{ name: 'event', in: 'query', required: true, schema: { type: 'string' }, description: 'Event type slug' },
+						{ name: 'month', in: 'query', required: true, schema: { type: 'string' }, description: 'Month in YYYY-MM format' }
 					],
 					responses: {
 						200: {
@@ -464,6 +462,34 @@ export function getOpenApiSpec(appUrl: string = 'https://cloudmeet.pages.dev'): 
 					},
 					responses: {
 						200: { description: 'CalDAV connection successful' },
+						400: { description: 'Connection failed' }
+					}
+				}
+			},
+			'/api/integrations/test-carddav': {
+				post: {
+					tags: ['Profile & Integrations'],
+					summary: 'Test CardDAV Server Connection',
+					security: [{ cookieAuth: [] }],
+					requestBody: {
+						required: true,
+						content: {
+							'application/json': {
+								schema: {
+									type: 'object',
+									required: ['serverUrl', 'username', 'password'],
+									properties: {
+										serverUrl: { type: 'string', format: 'uri' },
+										username: { type: 'string' },
+										password: { type: 'string' },
+										addressBookPath: { type: 'string' }
+									}
+								}
+							}
+						}
+					},
+					responses: {
+						200: { description: 'CardDAV connection successful' },
 						400: { description: 'Connection failed' }
 					}
 				}
