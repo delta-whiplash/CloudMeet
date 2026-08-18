@@ -5,8 +5,9 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getBusyTimes, getValidAccessToken } from '$lib/server/google-calendar';
-import { getOutlookBusyTimes, getValidOutlookAccessToken } from '$lib/server/outlook-calendar';
+import { getValidAccessToken } from '$lib/server/google-calendar';
+import { getValidOutlookAccessToken } from '$lib/server/outlook-calendar';
+import { getAggregatedBusyTimes, type UnifiedCalendarUserConfig } from '$lib/server/calendar';
 
 interface TimeSlot {
 	start: string;
@@ -38,8 +39,21 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 
 		// Get the first (and only) user for single-user setup
 		const user = await db
-			.prepare('SELECT id, slug, timezone, settings FROM users LIMIT 1')
-			.first<{ id: string; slug: string; timezone: string | null; settings: string | null }>();
+			.prepare(
+				`SELECT id, slug, timezone, settings,
+					caldav_url, caldav_username, caldav_password, caldav_calendar_path
+				FROM users LIMIT 1`
+			)
+			.first<{
+				id: string;
+				slug: string;
+				timezone: string | null;
+				settings: string | null;
+				caldav_url: string | null;
+				caldav_username: string | null;
+				caldav_password: string | null;
+				caldav_calendar_path: string | null;
+			}>();
 
 		if (!user) {
 			throw error(404, 'User not found');
@@ -131,40 +145,48 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 		const maxDate = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
 
 		// Get busy times from connected calendars for the entire month
-		let busySlots: TimeSlot[] = [];
+		// (Google, Outlook and CalDAV aggregated through the unified facade)
+		const userConfig: UnifiedCalendarUserConfig = { userId: user.id };
 
-		// Fetch Google Calendar busy times (if enabled)
 		if (useGoogleCalendar) {
-			try {
-				const accessToken = await getValidAccessToken(
-					db,
-					user.id,
-					env.GOOGLE_CLIENT_ID,
-					env.GOOGLE_CLIENT_SECRET
-				);
-				// Use selected calendars if configured, otherwise query all
-				const selectedCalendars = userSettings.selectedGoogleCalendars;
-				const googleBusy = await getBusyTimes(accessToken, firstDay, lastDay, selectedCalendars);
-				busySlots.push(...googleBusy);
-			} catch (err) {
-				console.error('Error fetching Google Calendar busy times:', err);
-			}
+			userConfig.googleAccessToken = await getValidAccessToken(
+				db,
+				user.id,
+				env.GOOGLE_CLIENT_ID,
+				env.GOOGLE_CLIENT_SECRET
+			).catch((err) => {
+				console.error('Error fetching Google access token:', err);
+				return undefined;
+			});
+			userConfig.googleCalendarIds = userSettings.selectedGoogleCalendars;
 		}
 
-		// Fetch Outlook Calendar busy times (if enabled and configured)
 		if (useOutlookCalendar && env.MICROSOFT_CLIENT_ID && env.MICROSOFT_CLIENT_SECRET) {
-			try {
-				const outlookToken = await getValidOutlookAccessToken(
-					db,
-					user.id,
-					env.MICROSOFT_CLIENT_ID,
-					env.MICROSOFT_CLIENT_SECRET
-				);
-				const outlookBusy = await getOutlookBusyTimes(outlookToken, firstDay, lastDay);
-				busySlots.push(...outlookBusy);
-			} catch (err) {
-				console.error('Error fetching Outlook Calendar busy times:', err);
-			}
+			userConfig.outlookAccessToken = await getValidOutlookAccessToken(
+				db,
+				user.id,
+				env.MICROSOFT_CLIENT_ID,
+				env.MICROSOFT_CLIENT_SECRET
+			).catch((err) => {
+				console.error('Error fetching Outlook access token:', err);
+				return undefined;
+			});
+		}
+
+		if (user.caldav_url && user.caldav_username && user.caldav_password) {
+			userConfig.caldavConfig = {
+				serverUrl: user.caldav_url,
+				username: user.caldav_username,
+				password: user.caldav_password,
+				calendarPath: user.caldav_calendar_path || undefined
+			};
+		}
+
+		let busySlots: TimeSlot[] = [];
+		try {
+			busySlots = await getAggregatedBusyTimes(userConfig, firstDay, lastDay);
+		} catch (err) {
+			console.error('Error fetching calendar busy times:', err);
 		}
 
 		// Get existing bookings for this month

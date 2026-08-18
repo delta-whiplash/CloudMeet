@@ -4,8 +4,9 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getBusyTimes, getValidAccessToken } from '$lib/server/google-calendar';
-import { getOutlookBusyTimes, getValidOutlookAccessToken } from '$lib/server/outlook-calendar';
+import { getValidAccessToken } from '$lib/server/google-calendar';
+import { getValidOutlookAccessToken } from '$lib/server/outlook-calendar';
+import { getAggregatedBusyTimes, type UnifiedCalendarUserConfig } from '$lib/server/calendar';
 import { generateETag, shouldReturn304, getCachedResponse, cacheResponse } from '$lib/server/edge-cache';
 import { buildSingleQueryAvailabilityParams, type ConsolidatedAvailabilityData } from '$lib/server/db-queries';
 
@@ -107,26 +108,48 @@ export const GET: RequestHandler = async ({ request, url, platform }) => {
 		const endOfDay = new Date(requestedDate);
 		endOfDay.setHours(23, 59, 59, 999);
 
-		let busySlots: TimeSlot[] = [];
+		// Aggregate busy times from every connected provider (Google, Outlook, CalDAV)
+		const userConfig: UnifiedCalendarUserConfig = { userId: user.id };
 
 		if (useGoogleCalendar) {
-			try {
-				const accessToken = await getValidAccessToken(db, user.id, env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET);
-				const googleBusy = await getBusyTimes(accessToken, startOfDay, endOfDay, userSettings.selectedGoogleCalendars);
-				busySlots.push(...googleBusy);
-			} catch (err) {
-				console.error('Error fetching Google Calendar busy times:', err);
-			}
+			userConfig.googleAccessToken = await getValidAccessToken(
+				db,
+				user.id,
+				env.GOOGLE_CLIENT_ID,
+				env.GOOGLE_CLIENT_SECRET
+			).catch((err) => {
+				console.error('Error fetching Google access token:', err);
+				return undefined;
+			});
+			userConfig.googleCalendarIds = userSettings.selectedGoogleCalendars;
 		}
 
 		if (useOutlookCalendar && env.MICROSOFT_CLIENT_ID && env.MICROSOFT_CLIENT_SECRET) {
-			try {
-				const outlookToken = await getValidOutlookAccessToken(db, user.id, env.MICROSOFT_CLIENT_ID, env.MICROSOFT_CLIENT_SECRET);
-				const outlookBusy = await getOutlookBusyTimes(outlookToken, startOfDay, endOfDay);
-				busySlots.push(...outlookBusy);
-			} catch (err) {
-				console.error('Error fetching Outlook Calendar busy times:', err);
-			}
+			userConfig.outlookAccessToken = await getValidOutlookAccessToken(
+				db,
+				user.id,
+				env.MICROSOFT_CLIENT_ID,
+				env.MICROSOFT_CLIENT_SECRET
+			).catch((err) => {
+				console.error('Error fetching Outlook access token:', err);
+				return undefined;
+			});
+		}
+
+		if (firstRow.caldav_url && firstRow.caldav_username && firstRow.caldav_password) {
+			userConfig.caldavConfig = {
+				serverUrl: firstRow.caldav_url,
+				username: firstRow.caldav_username,
+				password: firstRow.caldav_password,
+				calendarPath: firstRow.caldav_calendar_path || undefined
+			};
+		}
+
+		let busySlots: TimeSlot[] = [];
+		try {
+			busySlots = await getAggregatedBusyTimes(userConfig, startOfDay, endOfDay);
+		} catch (err) {
+			console.error('Error fetching calendar busy times:', err);
 		}
 
 		const bookings = await db

@@ -11,6 +11,7 @@ import type { CalDavEvent } from './caldav/icalendar';
 export interface UnifiedCalendarUserConfig {
 	userId: string;
 	googleAccessToken?: string;
+	googleCalendarIds?: string[];
 	outlookAccessToken?: string;
 	caldavConfig?: CalDavConfig;
 }
@@ -81,7 +82,9 @@ export async function getAggregatedBusyTimes(
 	const promises: Promise<BusySlot[]>[] = [];
 
 	if (userConfig.googleAccessToken) {
-		const fetcher = hooks?.fetchGoogleBusy || getGoogleBusyTimes;
+		const fetcher =
+			hooks?.fetchGoogleBusy ||
+			((token: string, start: Date, end: Date) => getGoogleBusyTimes(token, start, end, userConfig.googleCalendarIds));
 		promises.push(fetcher(userConfig.googleAccessToken, startDate, endDate).catch(() => []));
 	}
 
