@@ -176,3 +176,53 @@ export function getCurrentTime(tz: string, use12Hour = true): string {
 export function getTimezoneWithTime(tz: string, use12Hour = true): string {
 	return `${getTimezoneLabel(tz)} (${getCurrentTime(tz, use12Hour)})`;
 }
+
+/**
+ * Current UTC offset for a timezone, e.g. "UTC+2" or "UTC-4:30" (DST-aware).
+ */
+export function getTimezoneOffset(tz: string): string {
+	try {
+		const part = new Intl.DateTimeFormat('en-US', {
+			timeZone: tz,
+			timeZoneName: 'shortOffset'
+		})
+			.formatToParts(new Date())
+			.find((p) => p.type === 'timeZoneName');
+		return (part?.value || 'UTC').replace('GMT', 'UTC');
+	} catch {
+		return 'UTC';
+	}
+}
+
+/**
+ * Display label for a timezone: city + current offset, e.g. "Paris (UTC+2)".
+ */
+export function getTimezoneDisplayLabel(tz: string): string {
+	const city = tz.includes('/') ? (tz.split('/').pop() as string).replace(/_/g, ' ') : tz;
+	return `${city} (${getTimezoneOffset(tz)})`;
+}
+
+/**
+ * Curated shortlist for the booking sidebar quick picker (the full searchable
+ * list lives in TimezoneSelector). The active timezone is always included.
+ */
+const SIDEBAR_TIMEZONES = [
+	'Europe/Paris',
+	'Europe/London',
+	'Europe/Berlin',
+	'Europe/Madrid',
+	'America/New_York',
+	'America/Chicago',
+	'America/Los_Angeles',
+	'America/Sao_Paulo',
+	'Asia/Dubai',
+	'Asia/Kolkata',
+	'Asia/Singapore',
+	'Asia/Tokyo',
+	'Australia/Sydney',
+	'UTC'
+];
+
+export function getSidebarTimezones(activeTz: string): string[] {
+	return SIDEBAR_TIMEZONES.includes(activeTz) ? SIDEBAR_TIMEZONES : [activeTz, ...SIDEBAR_TIMEZONES];
+}

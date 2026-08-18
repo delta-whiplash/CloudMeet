@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import {
+		getSidebarTimezones,
+		getTimezoneDisplayLabel,
+		getTimezoneOffset
+	} from '$lib/constants/timezones';
 
 	interface EventTypeItem {
 		id: string;
@@ -17,6 +22,7 @@
 		} | null;
 		eventType: {
 			id?: string;
+			slug?: string;
 			name: string;
 			duration: number;
 			description?: string | null;
@@ -50,7 +56,7 @@
 		brandColor = '#7a5828',
 		formatTime,
 		selectedTimezone = 'Europe/Paris',
-		timezoneLabel = 'Paris (UTC+2)',
+		timezoneLabel = getTimezoneDisplayLabel(selectedTimezone),
 		onSelectTimezone,
 		use24h = true,
 		onToggleTimeFormat,
@@ -99,31 +105,25 @@
 	const fr = $derived(lang === 'fr');
 	const meetingLabel = eventType?.invite_calendar === 'outlook' ? 'Microsoft Teams' : 'Google Meet';
 
-	const defaultOptions = $derived<EventTypeItem[]>([
-		{
-			id: '15min',
-			name: fr ? 'Point Rapide' : 'Quick Catch-up',
-			duration: 15,
-			description: fr ? 'Alignement & question directe' : 'Quick alignment & direct questions'
-		},
-		{
-			id: '30min',
-			name: fr ? 'Consultation Stratégique' : 'Strategy Session',
-			duration: 30,
-			description: fr ? "Revue d'architecture & conseils" : 'Architecture review & advice'
-		},
-		{
-			id: '60min',
-			name: fr ? 'Atelier Deep-Dive' : 'Deep-Dive Workshop',
-			duration: 60,
-			description: fr ? 'Audit complet & accompagnement' : 'Comprehensive audit & guidance'
-		}
-	]);
-
-	const displayOptions = $derived(eventTypes.length > 0 ? eventTypes : defaultOptions);
+	// Real event types only — never invent booking options for the host.
+	const displayOptions = $derived<EventTypeItem[]>(
+		eventTypes.length > 0
+			? eventTypes
+			: eventType
+				? [
+						{
+							id: eventType.id ?? eventType.name,
+							slug: eventType.slug,
+							name: eventType.name,
+							duration: eventType.duration,
+							description: eventType.description
+						}
+					]
+				: []
+	);
 
 	function getInitials(name?: string) {
-		if (!name) return 'AV';
+		if (!name) return 'CM';
 		const parts = name.trim().split(' ');
 		if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 		return name.slice(0, 2).toUpperCase();
@@ -189,11 +189,11 @@
 				{/if}
 			</div>
 			<h2 class="font-display text-xl font-semibold tracking-tight text-foreground">
-				{user?.name || 'Alex Vance'}
+				{user?.name || (fr ? 'Votre hôte' : 'Your host')}
 			</h2>
-			<p class="mt-0.5 text-xs font-medium text-muted-foreground">
-				{user?.role || (fr ? 'Architecture Product & Stratégie' : 'Product Architecture & Strategy')}
-			</p>
+			{#if user?.role}
+				<p class="mt-0.5 text-xs font-medium text-muted-foreground">{user.role}</p>
+			{/if}
 		</div>
 
 		<div>
@@ -214,6 +214,14 @@
 		</div>
 
 		<!-- Event type options -->
+		{#if displayOptions.length === 0}
+			<p class="rounded-xl border border-border bg-surface-2 p-4 text-sm text-muted-foreground">
+				{fr
+					? "Aucun rendez-vous n'est proposé pour le moment. Revenez bientôt !"
+					: 'No appointments are available yet. Please check back soon!'}
+			</p>
+		{/if}
+
 		<div class="space-y-3">
 			{#each displayOptions as option (option.id)}
 				{@const isSelected =
@@ -296,42 +304,20 @@
 				</button>
 
 				{#if showTzDropdown}
-					<div class="absolute bottom-6 right-0 z-40 w-56 rounded-lg border border-border bg-surface py-1 text-xs shadow-card">
+					<div class="absolute bottom-6 right-0 z-40 max-h-56 w-56 overflow-y-auto rounded-lg border border-border bg-surface py-1 text-xs shadow-card">
 						<div class="border-b border-border px-3 py-1 text-[10px] font-bold uppercase text-subtle">
 							{fr ? 'Fuseaux Horaires' : 'Timezones'}
 						</div>
-						<button
-							type="button"
-							onclick={() => selectTz('Europe/Paris', 'Paris (UTC+2)')}
-							class="flex w-full items-center justify-between px-3 py-2 text-left text-foreground transition-colors hover:bg-surface-2"
-						>
-							<span>Europe / Paris</span>
-							<span class="font-mono text-[10px] text-subtle">UTC+2</span>
-						</button>
-						<button
-							type="button"
-							onclick={() => selectTz('America/New_York', 'New York (EDT)')}
-							class="flex w-full items-center justify-between px-3 py-2 text-left text-foreground transition-colors hover:bg-surface-2"
-						>
-							<span>America / New York</span>
-							<span class="font-mono text-[10px] text-subtle">UTC-4</span>
-						</button>
-						<button
-							type="button"
-							onclick={() => selectTz('Europe/London', 'London (BST)')}
-							class="flex w-full items-center justify-between px-3 py-2 text-left text-foreground transition-colors hover:bg-surface-2"
-						>
-							<span>Europe / London</span>
-							<span class="font-mono text-[10px] text-subtle">UTC+1</span>
-						</button>
-						<button
-							type="button"
-							onclick={() => selectTz('Asia/Tokyo', 'Tokyo (JST)')}
-							class="flex w-full items-center justify-between px-3 py-2 text-left text-foreground transition-colors hover:bg-surface-2"
-						>
-							<span>Asia / Tokyo</span>
-							<span class="font-mono text-[10px] text-subtle">UTC+9</span>
-						</button>
+						{#each getSidebarTimezones(selectedTimezone || 'Europe/Paris') as tz (tz)}
+							<button
+								type="button"
+								onclick={() => selectTz(tz, getTimezoneDisplayLabel(tz))}
+								class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-foreground transition-colors hover:bg-surface-2"
+							>
+								<span class="truncate">{tz.replace(/_/g, ' ')}</span>
+								<span class="font-mono text-[10px] text-subtle">{getTimezoneOffset(tz)}</span>
+							</button>
+						{/each}
 					</div>
 				{/if}
 			</div>
