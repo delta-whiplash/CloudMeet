@@ -7,7 +7,8 @@ import { json, error, type RequestEvent } from '@sveltejs/kit';
 import { getCurrentUser } from '$lib/server/auth';
 import { cancelCalendarEvent, getValidAccessToken } from '$lib/server/google-calendar';
 import { cancelOutlookCalendarEvent, getValidOutlookAccessToken } from '$lib/server/outlook-calendar';
-import { sendCancellationEmail, getEmailTemplates, isEmailEnabled } from '$lib/server/email';
+import { CalDavClient } from '$lib/server/caldav/caldav-client';
+import { sendCancellationEmail, getEmailTemplates, isEmailEnabled, resolveEmailTransport } from '$lib/server/email';
 
 export const POST = async (event: RequestEvent) => {
 	const env = event.platform?.env;
@@ -37,10 +38,11 @@ export const POST = async (event: RequestEvent) => {
 		// Get booking and verify ownership
 		const booking = await db
 			.prepare(
-				`SELECT b.id, b.user_id, b.google_event_id, b.outlook_event_id, b.status, b.start_time, b.end_time,
+				`SELECT b.id, b.user_id, b.google_event_id, b.outlook_event_id, b.caldav_event_id, b.status, b.start_time, b.end_time,
 				b.attendee_name, b.attendee_email,
 				e.name as event_name, e.slug as event_slug, e.description as event_description,
-				u.name as host_name, u.email as host_email, u.contact_email, u.settings, u.brand_color
+				u.name as host_name, u.email as host_email, u.contact_email, u.settings, u.brand_color,
+				u.caldav_url, u.caldav_username, u.caldav_password, u.caldav_calendar_path
 				FROM bookings b
 				JOIN event_types e ON b.event_type_id = e.id
 				JOIN users u ON b.user_id = u.id
@@ -52,6 +54,7 @@ export const POST = async (event: RequestEvent) => {
 				user_id: string;
 				google_event_id: string | null;
 				outlook_event_id: string | null;
+				caldav_event_id: string | null;
 				status: string;
 				start_time: string;
 				end_time: string;
@@ -65,6 +68,10 @@ export const POST = async (event: RequestEvent) => {
 				contact_email: string | null;
 				settings: string | null;
 				brand_color: string | null;
+				caldav_url: string | null;
+				caldav_username: string | null;
+				caldav_password: string | null;
+				caldav_calendar_path: string | null;
 			}>();
 
 		if (!booking) {
@@ -111,6 +118,22 @@ export const POST = async (event: RequestEvent) => {
 			}
 		}
 
+		// Cancel on the CalDAV server if event exists
+		if (booking.caldav_event_id && booking.caldav_url && booking.caldav_username && booking.caldav_password) {
+			try {
+				const client = new CalDavClient({
+					serverUrl: booking.caldav_url,
+					username: booking.caldav_username,
+					password: booking.caldav_password,
+					calendarPath: booking.caldav_calendar_path || undefined
+				});
+				await client.cancelCalendarEvent(booking.caldav_event_id);
+			} catch (err) {
+				console.error('Failed to cancel CalDAV event:', err);
+				// Continue with database cancellation even if CalDAV fails
+			}
+		}
+
 		// Update booking status
 		await db
 			.prepare('UPDATE bookings SET status = ?, canceled_at = CURRENT_TIMESTAMP, canceled_by = ?, cancellation_reason = ? WHERE id = ?')
@@ -123,8 +146,9 @@ export const POST = async (event: RequestEvent) => {
 			.bind(bookingId)
 			.run();
 
-		// Send cancellation email if enabled
-		if (env.EMAILIT_API_KEY) {
+		// Send cancellation email if enabled (SMTP > EmailIt)
+		const transport = await resolveEmailTransport(db, booking.user_id, env);
+		if (transport.smtp || transport.apiKey) {
 			try {
 				// Parse user settings for time format
 				let timeFormat: '12h' | '24h' = '12h';
@@ -160,8 +184,9 @@ export const POST = async (event: RequestEvent) => {
 							brandColor: booking.brand_color || undefined
 						},
 						{
-							apiKey: env.EMAILIT_API_KEY,
-							from: env.EMAIL_FROM || booking.host_email,
+							smtp: transport.smtp,
+							apiKey: transport.apiKey,
+							from: transport.from,
 							replyTo: replyToEmail
 						},
 						template?.subject || undefined

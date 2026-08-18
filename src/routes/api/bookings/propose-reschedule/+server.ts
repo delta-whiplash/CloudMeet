@@ -5,7 +5,13 @@
 
 import { json, error, type RequestEvent } from '@sveltejs/kit';
 import { getCurrentUser } from '$lib/server/auth';
-import { getEmailTemplates, isEmailEnabled } from '$lib/server/email';
+import {
+	getEmailTemplates,
+	isEmailEnabled,
+	resolveEmailTransport,
+	sendUnifiedEmail,
+	type EmailConfig
+} from '$lib/server/email';
 
 export const POST = async (event: RequestEvent) => {
 	const env = event.platform?.env;
@@ -97,8 +103,9 @@ export const POST = async (event: RequestEvent) => {
 			.bind(bookingId)
 			.run();
 
-		// Send email to attendee with proposal
-		if (env.EMAILIT_API_KEY) {
+		// Send email to attendee with proposal (SMTP > EmailIt)
+		const transport = await resolveEmailTransport(db, booking.user_id, env);
+		if (transport.smtp || transport.apiKey) {
 			try {
 				// Parse user settings for time format
 				let timeFormat: '12h' | '24h' = '12h';
@@ -132,8 +139,9 @@ export const POST = async (event: RequestEvent) => {
 						brandColor: booking.brand_color || '#7a5828'
 					},
 					{
-						apiKey: env.EMAILIT_API_KEY,
-						from: env.EMAIL_FROM || booking.host_email,
+						smtp: transport.smtp,
+						apiKey: transport.apiKey,
+						from: transport.from,
 						replyTo: booking.contact_email || booking.host_email
 					}
 				);
@@ -167,12 +175,6 @@ interface RescheduleProposalEmailData {
 	appUrl: string;
 	timeFormat: '12h' | '24h';
 	brandColor: string;
-}
-
-interface EmailConfig {
-	apiKey: string;
-	from: string;
-	replyTo: string;
 }
 
 async function sendRescheduleProposalEmail(data: RescheduleProposalEmailData, config: EmailConfig): Promise<void> {
@@ -271,23 +273,18 @@ async function sendRescheduleProposalEmail(data: RescheduleProposalEmailData, co
 </html>
 	`;
 
-	const response = await fetch('https://api.emailit.com/v1/emails', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${config.apiKey}`
-		},
-		body: JSON.stringify({
+	await sendUnifiedEmail(
+		{
 			from: `${data.hostName} <${config.from}>`,
 			to: data.attendeeEmail,
-			reply_to: config.replyTo,
+			replyTo: config.replyTo,
 			subject: `Reschedule Request: ${data.eventName} with ${data.hostName}`,
 			html: htmlBody
-		})
-	});
-
-	if (!response.ok) {
-		const errorText = await response.text();
-		throw new Error(`Failed to send email: ${errorText}`);
-	}
+		},
+		{
+			smtp: config.smtp,
+			emailItApiKey: config.apiKey,
+			from: config.from
+		}
+	);
 }

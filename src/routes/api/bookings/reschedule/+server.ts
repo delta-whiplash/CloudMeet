@@ -6,7 +6,8 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createCalendarEvent, cancelCalendarEvent, getValidAccessToken } from '$lib/server/google-calendar';
-import { sendRescheduleEmail, sendAdminRescheduleNotification, getEmailTemplates, isEmailEnabled } from '$lib/server/email';
+import { CalDavClient } from '$lib/server/caldav/caldav-client';
+import { sendRescheduleEmail, sendAdminRescheduleNotification, getEmailTemplates, isEmailEnabled, resolveEmailTransport } from '$lib/server/email';
 
 export const POST: RequestHandler = async ({ request, platform }) => {
 	const env = platform?.env;
@@ -38,7 +39,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 				e.name as event_name, e.slug as event_slug, e.description as event_description,
 				e.duration_minutes as duration,
 				u.id as host_user_id, u.name as host_name, u.email as host_email,
-				u.contact_email, u.settings, u.brand_color
+				u.contact_email, u.settings, u.brand_color,
+				u.caldav_url, u.caldav_username, u.caldav_password, u.caldav_calendar_path
 				FROM bookings b
 				JOIN event_types e ON b.event_type_id = e.id
 				JOIN users u ON b.user_id = u.id
@@ -55,6 +57,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 				attendee_email: string;
 				attendee_notes: string | null;
 				google_event_id: string | null;
+				caldav_event_id: string | null;
 				event_name: string;
 				event_slug: string;
 				event_description: string | null;
@@ -65,6 +68,10 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 				contact_email: string | null;
 				settings: string | null;
 				brand_color: string | null;
+				caldav_url: string | null;
+				caldav_username: string | null;
+				caldav_password: string | null;
+				caldav_calendar_path: string | null;
 			}>();
 
 		if (!originalBooking) {
@@ -152,6 +159,49 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			// Continue without calendar event if there's an error
 		}
 
+		// Reschedule on the CalDAV server when the booking lives there
+		// (fallback when no Google event was produced)
+		let newCaldavEventId: string | null = originalBooking.caldav_event_id;
+		if (
+			!newCalendarEventId &&
+			originalBooking.caldav_url &&
+			originalBooking.caldav_username &&
+			originalBooking.caldav_password
+		) {
+			try {
+				const client = new CalDavClient({
+					serverUrl: originalBooking.caldav_url,
+					username: originalBooking.caldav_username,
+					password: originalBooking.caldav_password,
+					calendarPath: originalBooking.caldav_calendar_path || undefined
+				});
+
+				if (originalBooking.caldav_event_id) {
+					try {
+						await client.cancelCalendarEvent(originalBooking.caldav_event_id);
+					} catch (err) {
+						console.error('Error cancelling old CalDAV event:', err);
+					}
+				}
+
+				const uid = `booking-${crypto.randomUUID()}`;
+				const notes = originalBooking.attendee_notes;
+				await client.createCalendarEvent({
+					uid,
+					summary: `${originalBooking.event_name} with ${originalBooking.attendee_name}`,
+					description: `${originalBooking.event_description || ''}\n\nAttendee: ${originalBooking.attendee_name} (${originalBooking.attendee_email})${notes ? `\n\nNotes:\n${notes}` : ''}`,
+					startTime: newStartDateTime,
+					endTime: newEndDateTime,
+					attendees: [{ name: originalBooking.attendee_name, email: originalBooking.attendee_email }],
+					status: 'CONFIRMED'
+				});
+				newCaldavEventId = uid;
+			} catch (err) {
+				console.error('Error with CalDAV calendar:', err);
+				// Continue without CalDAV event if there's an error
+			}
+		}
+
 		// Update the booking with new times (keeping attendee info) and set status to confirmed
 		await db
 			.prepare(
@@ -159,6 +209,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 					start_time = ?,
 					end_time = ?,
 					google_event_id = ?,
+					caldav_event_id = ?,
 					meeting_url = ?,
 					status = 'confirmed'
 				WHERE id = ?`
@@ -167,6 +218,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 				newStartTime,
 				newEndTime,
 				newCalendarEventId,
+				newCaldavEventId,
 				newMeetingUrl,
 				bookingId
 			)
@@ -190,8 +242,9 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		await env.KV.delete(`availability:${originalBooking.event_slug}:${oldDateStr}`);
 		await env.KV.delete(`availability:${originalBooking.event_slug}:${newDateStr}`);
 
-		// Send reschedule email (not cancellation email!)
-		if (env.EMAILIT_API_KEY) {
+		// Send reschedule email (not cancellation email!) (SMTP > EmailIt)
+		const transport = await resolveEmailTransport(db, originalBooking.user_id, env);
+		if (transport.smtp || transport.apiKey) {
 			try {
 				// Parse user settings for time format
 				let timeFormat: '12h' | '24h' = '12h';
@@ -230,8 +283,9 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 							attendeeNotes: originalBooking.attendee_notes
 						},
 						{
-							apiKey: env.EMAILIT_API_KEY,
-							from: env.EMAIL_FROM || originalBooking.host_email,
+							smtp: transport.smtp,
+							apiKey: transport.apiKey,
+							from: transport.from,
 							replyTo: replyToEmail
 						},
 						template?.subject || undefined
@@ -262,8 +316,9 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 						},
 						originalBooking.host_email,
 						{
-							apiKey: env.EMAILIT_API_KEY,
-							from: env.EMAIL_FROM || originalBooking.host_email
+							smtp: transport.smtp,
+							apiKey: transport.apiKey,
+							from: transport.from
 						}
 					);
 				} catch (adminEmailErr) {

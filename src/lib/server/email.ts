@@ -11,6 +11,8 @@ export {
 	type RescheduleEmailData,
 	type EmailTemplate,
 	type EmailTemplateType,
+	type EmailConfig,
+	type ResolvedEmailTransport,
 	// Formatters
 	createEmailFormatters,
 	replaceSubjectVariables,
@@ -32,6 +34,9 @@ export {
 	sendAdminNotificationEmail,
 	sendAdminCancellationNotification,
 	sendAdminRescheduleNotification,
+	// Unified transport
+	sendUnifiedEmail,
+	resolveEmailTransport,
 	// Database functions
 	getEmailTemplates,
 	isEmailEnabled

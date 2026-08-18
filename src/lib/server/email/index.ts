@@ -86,6 +86,60 @@ function buildBookingIcs(data: BookingEmailData): IcsAttachment {
 }
 
 /**
+ * Resolved transport settings for a host: profile SMTP overrides win over
+ * environment SMTP, EmailIt is the fallback API provider.
+ */
+export interface ResolvedEmailTransport {
+	smtp?: SmtpConfig;
+	apiKey?: string;
+	from: string;
+}
+
+/**
+ * Resolve the email transport for a user from their stored SMTP settings with
+ * environment fallbacks (shared by every transactional email call site).
+ */
+export async function resolveEmailTransport(
+	db: D1Database,
+	userId: string,
+	env: App.Platform['env']
+): Promise<ResolvedEmailTransport> {
+	const user = await db
+		.prepare(
+			`SELECT email, smtp_host, smtp_port, smtp_username, smtp_password, smtp_secure, smtp_from
+			 FROM users WHERE id = ?`
+		)
+		.bind(userId)
+		.first<{
+			email: string;
+			smtp_host: string | null;
+			smtp_port: number | null;
+			smtp_username: string | null;
+			smtp_password: string | null;
+			smtp_secure: number | null;
+			smtp_from: string | null;
+		}>();
+
+	const smtp =
+		user && (user.smtp_host || env.SMTP_HOST)
+			? {
+					host: user.smtp_host || env.SMTP_HOST || '',
+					port: user.smtp_port || Number(env.SMTP_PORT) || 587,
+					username: user.smtp_username || env.SMTP_USER,
+					password: user.smtp_password || env.SMTP_PASS,
+					secure: user.smtp_secure !== null ? !!user.smtp_secure : env.SMTP_SECURE === 'true',
+					from: user.smtp_from || env.SMTP_FROM || env.EMAIL_FROM || user.email
+				}
+			: undefined;
+
+	return {
+		smtp,
+		apiKey: env.EMAILIT_API_KEY,
+		from: smtp?.from || env.EMAIL_FROM || user?.email || ''
+	};
+}
+
+/**
  * Send booking confirmation email via SMTP or Emailit API
  */
 export async function sendBookingEmail(

@@ -3,7 +3,7 @@
  */
 
 import { json, error, type RequestEvent } from '@sveltejs/kit';
-import { sendReminderEmail, getEmailTemplates, type EmailTemplateType } from '$lib/server/email';
+import { sendReminderEmail, getEmailTemplates, resolveEmailTransport, type EmailTemplateType } from '$lib/server/email';
 import { shouldSkipCronExecution } from '$lib/server/cron-optimizer';
 
 export const GET = async ({ url, platform }: RequestEvent) => {
@@ -116,7 +116,8 @@ export const GET = async ({ url, platform }: RequestEvent) => {
 					continue;
 				}
 
-				if (env.EMAILIT_API_KEY) {
+				const transport = await resolveEmailTransport(db, email.user_id, env);
+				if (transport.smtp || transport.apiKey) {
 					let timeFormat: '12h' | '24h' = '12h';
 					try {
 						const settings = email.settings ? JSON.parse(email.settings) : {};
@@ -147,8 +148,9 @@ export const GET = async ({ url, platform }: RequestEvent) => {
 						},
 						email.template_type as 'reminder_24h' | 'reminder_1h' | 'reminder_30m',
 						{
-							apiKey: env.EMAILIT_API_KEY,
-							from: env.EMAIL_FROM || email.host_email,
+							smtp: transport.smtp,
+							apiKey: transport.apiKey,
+							from: transport.from,
 							replyTo: replyToEmail
 						},
 						template?.subject || undefined
@@ -161,7 +163,7 @@ export const GET = async ({ url, platform }: RequestEvent) => {
 					results.sent++;
 				} else {
 					await db
-						.prepare(`UPDATE scheduled_emails SET status = 'failed', error_message = 'Email API not configured' WHERE id = ?`)
+						.prepare(`UPDATE scheduled_emails SET status = 'failed', error_message = 'Email transport not configured' WHERE id = ?`)
 						.bind(email.id)
 						.run();
 					results.failed++;
