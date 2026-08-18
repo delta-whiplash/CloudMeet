@@ -44,6 +44,8 @@ import {
 } from './templates';
 import { sendUnifiedEmail } from './transporter';
 import type { SmtpConfig } from './smtp-client';
+import type { IcsAttachment } from './mime';
+import { generateICalendarEvent } from '$lib/server/caldav/icalendar';
 
 /**
  * Email configuration for sending
@@ -53,6 +55,34 @@ export interface EmailConfig {
 	smtp?: SmtpConfig;
 	from: string;
 	replyTo?: string;
+}
+
+/**
+ * Build a calendar invite (.ics, METHOD:REQUEST) for an email's booking data.
+ * Attached on the SMTP path; the EmailIt API does not support attachments.
+ */
+function buildBookingIcs(data: BookingEmailData): IcsAttachment {
+	const descriptionParts = [data.eventDescription];
+	if (data.meetingUrl) descriptionParts.push(`Join: ${data.meetingUrl}`);
+	const description = descriptionParts.filter(Boolean).join(' — ');
+
+	return {
+		filename: `cloudmeet-${data.eventSlug || data.bookingId}.ics`,
+		content: generateICalendarEvent({
+			uid: `booking-${data.bookingId}@cloudmeet`,
+			summary: `${data.eventName} — ${data.hostName} & ${data.attendeeName}`,
+			description,
+			location: data.meetingUrl || undefined,
+			startTime: data.startTime,
+			endTime: data.endTime,
+			status: 'CONFIRMED',
+			organizer: {
+				name: data.hostName,
+				email: data.hostContactEmail || data.hostEmail
+			},
+			attendees: [{ name: data.attendeeName, email: data.attendeeEmail, status: 'ACCEPTED' }]
+		})
+	};
 }
 
 /**
@@ -76,7 +106,8 @@ export async function sendBookingEmail(
 			replyTo: config.replyTo,
 			subject,
 			text: textBody,
-			html: htmlBody
+			html: htmlBody,
+			icsAttachment: buildBookingIcs(data)
 		},
 		{
 			smtp: config.smtp,
@@ -134,7 +165,8 @@ export async function sendRescheduleEmail(
 			to: data.attendeeEmail,
 			replyTo: config.replyTo,
 			subject,
-			html: htmlBody
+			html: htmlBody,
+			icsAttachment: buildBookingIcs(data)
 		},
 		{
 			smtp: config.smtp,
