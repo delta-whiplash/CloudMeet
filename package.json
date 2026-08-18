@@ -16,6 +16,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:all": "pnpm run check && pnpm run test && pnpm run test:e2e",
     "prebuild": "node scripts/prebuild.js"
   },
   "keywords": [
@@ -34,6 +36,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260811.1",
+    "@playwright/test": "^1.62.1",
     "@sveltejs/adapter-cloudflare": "^7.2.9",
     "@sveltejs/kit": "^2.70.2",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",

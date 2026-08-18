@@ -39,5 +39,17 @@ jobs:
       - name: Run Vitest test suite
         run: pnpm test
 
+      - name: Install Playwright Browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Initialize D1 Local Schema for E2E
+        run: pnpm run db:init
+
+      - name: Provision E2E dev vars
+        run: printf 'DASHBOARD_DEMO=1\nJWT_SECRET=ci-e2e-test-secret\n' > .dev.vars
+
+      - name: Run Playwright E2E Non-Regression Suite
+        run: pnpm run test:e2e
+
       - name: Build production bundle
         run: pnpm run build
