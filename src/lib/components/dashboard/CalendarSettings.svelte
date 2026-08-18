@@ -11,8 +11,9 @@
 		user: {
 			googleConnected?: boolean;
 			outlookConnected?: boolean;
+			caldavConnected?: boolean;
 			defaultAvailabilityCalendars?: 'google' | 'outlook' | 'both';
-			defaultInviteCalendar?: 'google' | 'outlook';
+			defaultInviteCalendar?: 'google' | 'outlook' | 'caldav';
 			selectedGoogleCalendars?: string[];
 		} | null;
 		outlookConfigured: boolean;
@@ -29,6 +30,7 @@
 	// Calendar settings with smart defaults
 	const hasGoogle = user?.googleConnected ?? false;
 	const hasOutlook = (user?.outlookConnected ?? false) && outlookConfigured;
+	const hasCaldav = user?.caldavConnected ?? false;
 
 	function getDefaultAvailability(): 'google' | 'outlook' | 'both' {
 		if (user?.defaultAvailabilityCalendars) return user.defaultAvailabilityCalendars;
@@ -37,10 +39,11 @@
 		return 'google';
 	}
 
-	function getDefaultInvite(): 'google' | 'outlook' {
+	function getDefaultInvite(): 'google' | 'outlook' | 'caldav' {
 		if (user?.defaultInviteCalendar) return user.defaultInviteCalendar;
 		if (hasGoogle) return 'google';
 		if (hasOutlook) return 'outlook';
+		if (hasCaldav) return 'caldav';
 		return 'google';
 	}
 
@@ -286,12 +289,15 @@
 						bind:value={inviteCalendar}
 						class="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-foreground transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 					>
-						{#if hasGoogle}
-							<option value="google">Google Calendar (Google Meet)</option>
-						{/if}
-						{#if hasOutlook}
-							<option value="outlook">Outlook Calendar (Microsoft Teams)</option>
-						{/if}
+					{#if hasGoogle}
+						<option value="google">Google Calendar (Google Meet)</option>
+					{/if}
+					{#if hasOutlook}
+						<option value="outlook">Outlook Calendar (Microsoft Teams)</option>
+					{/if}
+					{#if hasCaldav}
+						<option value="caldav">CalDAV Calendar (open standard)</option>
+					{/if}
 					</select>
 				</div>
 

@@ -23,9 +23,9 @@ export const load: PageServerLoad = async (event) => {
 
 	// Get user info including calendar connection status
 	const user = await db
-		.prepare('SELECT id, google_refresh_token, outlook_refresh_token, settings FROM users WHERE id = ?')
+		.prepare('SELECT id, google_refresh_token, outlook_refresh_token, caldav_url, settings FROM users WHERE id = ?')
 		.bind(userId)
-		.first<{ id: string; google_refresh_token: string | null; outlook_refresh_token: string | null; settings: string | null }>();
+		.first<{ id: string; google_refresh_token: string | null; outlook_refresh_token: string | null; caldav_url: string | null; settings: string | null }>();
 
 	// Check if Microsoft OAuth is configured
 	const outlookConfigured = !!(event.platform?.env?.MICROSOFT_CLIENT_ID && event.platform?.env?.MICROSOFT_CLIENT_SECRET);
@@ -33,7 +33,7 @@ export const load: PageServerLoad = async (event) => {
 	// Parse user settings for global calendar defaults
 	let userSettings: {
 		defaultAvailabilityCalendars?: 'google' | 'outlook' | 'both';
-		defaultInviteCalendar?: 'google' | 'outlook';
+		defaultInviteCalendar?: 'google' | 'outlook' | 'caldav';
 		selectedGoogleCalendars?: string[];
 	} = {};
 	try {
@@ -46,6 +46,7 @@ export const load: PageServerLoad = async (event) => {
 		user: user ? {
 			googleConnected: !!user.google_refresh_token,
 			outlookConnected: !!user.outlook_refresh_token,
+			caldavConnected: !!user.caldav_url,
 			defaultAvailabilityCalendars: userSettings.defaultAvailabilityCalendars,
 			defaultInviteCalendar: userSettings.defaultInviteCalendar,
 			selectedGoogleCalendars: userSettings.selectedGoogleCalendars
