@@ -39,7 +39,8 @@ describe('Email Module Entry Point (src/lib/server/email/index.ts)', () => {
 			}
 		};
 
-		// Should complete without error using SMTP path
-		await expect(sendBookingEmail(sampleData, config as any)).resolves.not.toThrow();
+		// Outside the Workers runtime the SMTP client must fail loudly instead
+		// of reporting a false success (no cloudflare:sockets in Node).
+		await expect(sendBookingEmail(sampleData, config as any)).rejects.toThrow(/cloudflare:sockets/);
 	});
 });

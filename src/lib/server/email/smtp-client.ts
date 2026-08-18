@@ -102,34 +102,61 @@ export class SmtpClient {
 	}
 
 	private async sendViaCloudflareSocket(connectSocket: Function, rawMime: string, options: MimeEmailOptions): Promise<void> {
-		const socket = connectSocket(`${this.config.host}:${this.config.port}`, {
+		let socket = connectSocket(`${this.config.host}:${this.config.port}`, {
 			secureTransport: this.config.secure ? 'on' : 'starttls'
 		});
 
-		const writer = socket.writable.getWriter();
-		const reader = socket.readable.getReader();
+		let writer = socket.writable.getWriter();
+		let reader = socket.readable.getReader();
 		const encoder = new TextEncoder();
 		const decoder = new TextDecoder();
 
-		const sendCmd = async (cmd: string) => {
+		// A reply is complete when one of its lines starts with "ddd " (space),
+		// as opposed to continuation lines "ddd-".
+		const isCompleteReply = (buf: string) => buf.split(/\r?\n/).some((l) => /^\d{3} /.test(l));
+
+		const readReply = async (): Promise<string> => {
+			let buffer = '';
+			for (let reads = 0; reads < 50 && !isCompleteReply(buffer); reads++) {
+				const { value, done } = await reader.read();
+				if (done) break;
+				buffer += decoder.decode(value);
+			}
+			return buffer;
+		};
+
+		const sendCmd = async (cmd: string): Promise<string> => {
 			await writer.write(encoder.encode(cmd + '\r\n'));
-			const { value } = await reader.read();
-			const resStr = decoder.decode(value);
-			const parsed = parseSmtpResponse(resStr);
+			const raw = await readReply();
+			const parsed = parseSmtpResponse(raw);
 			if (!parsed.isOk) {
 				throw new Error(`SMTP Error (${parsed.code}): ${parsed.message}`);
 			}
-			return parsed;
+			return raw;
 		};
 
 		// Read greeting
-		const { value: greetingVal } = await reader.read();
-		const greeting = parseSmtpResponse(decoder.decode(greetingVal));
+		const greeting = parseSmtpResponse(await readReply());
 		if (!greeting.isOk) {
 			throw new Error(`SMTP Greeting failed: ${greeting.message}`);
 		}
 
-		await sendCmd(`EHLO cloudmeet`);
+		const ehloReply = await sendCmd(`EHLO cloudmeet`);
+
+		// Opportunistic STARTTLS on plaintext connections (RFC 3207)
+		if (!this.config.secure && ehloReply.toUpperCase().includes('STARTTLS')) {
+			await writer.write(encoder.encode('STARTTLS\r\n'));
+			const tlsAck = parseSmtpResponse(await readReply());
+			if (!tlsAck.isOk) {
+				throw new Error(`STARTTLS rejected (${tlsAck.code}): ${tlsAck.message}`);
+			}
+			writer.releaseLock();
+			reader.releaseLock();
+			socket = socket.startTls();
+			writer = socket.writable.getWriter();
+			reader = socket.readable.getReader();
+			await sendCmd(`EHLO cloudmeet`);
+		}
 
 		if (this.config.username && this.config.password) {
 			const authPayload = encodeSmtpPlainAuth(this.config.username, this.config.password);
@@ -150,7 +177,12 @@ export class SmtpClient {
 	}
 
 	private async sendViaFetchRelay(rawMime: string, options: MimeEmailOptions): Promise<void> {
-		// Log or simulate in dev/testing mode when raw sockets are unattached
-		console.log(`[SMTP Direct] Sending email to ${typeof options.to === 'string' ? options.to : options.to.email} via ${this.config.host}:${this.config.port}`);
+		// No raw-socket transport outside the Workers runtime: fail loudly
+		// instead of pretending the email was delivered. Local development can
+		// use the EmailIt provider or the console mock transport instead.
+		const to = typeof options.to === 'string' ? options.to : options.to.email;
+		throw new Error(
+			`SMTP direct send requires the Cloudflare Workers runtime (cloudflare:sockets) — cannot deliver to ${to} via ${this.config.host}:${this.config.port}`
+		);
 	}
 }
