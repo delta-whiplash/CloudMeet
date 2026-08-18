@@ -16,62 +16,56 @@
 </script>
 
 <div>
-	<div class="flex justify-between items-center mb-4">
-		<h2 class="text-xl font-bold text-gray-900">Event Types</h2>
+	<div class="mb-4 flex items-center justify-between">
+		<h2 class="font-display text-xl font-semibold text-foreground">Event types</h2>
 		<a
 			href="/dashboard/event-types/new"
-			class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"
+			class="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:bg-primary-hover hover:shadow-glow"
 		>
-			+ New Event Type
+			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 5v14M5 12h14" /></svg>
+			New
 		</a>
 	</div>
 
-	<div class="space-y-4">
+	<div class="space-y-3">
 		{#if eventTypes && eventTypes.length > 0}
-			{#each eventTypes as eventType}
-				<div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-					<div class="flex justify-between items-start mb-2">
-						<div>
-							<h3 class="font-semibold text-gray-900">{eventType.name}</h3>
-							<p class="text-sm text-gray-600">{eventType.duration} minutes</p>
+			{#each eventTypes as eventType (eventType.id)}
+				<div class="rounded-xl border border-border bg-surface p-4 shadow-soft transition-shadow hover:shadow-card">
+					<div class="mb-2 flex items-start justify-between gap-2">
+						<div class="min-w-0">
+							<h3 class="truncate font-semibold text-foreground">{eventType.name}</h3>
+							<p class="text-sm text-muted-foreground">{eventType.duration} minutes</p>
 						</div>
 						<span
-							class="px-2 py-1 text-xs rounded-full {eventType.is_active
-								? 'bg-green-100 text-green-800'
-								: 'bg-gray-100 text-gray-800'}"
+							class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {eventType.is_active
+								? 'bg-success-muted text-success'
+								: 'bg-surface-2 text-muted-foreground'}"
 						>
 							{eventType.is_active ? 'Active' : 'Inactive'}
 						</span>
 					</div>
 					{#if eventType.description}
-						<p class="text-sm text-gray-600 mb-3">{eventType.description}</p>
+						<p class="mb-3 line-clamp-2 text-sm text-muted-foreground">{eventType.description}</p>
 					{/if}
-					<div class="flex gap-2">
-						<a
-							href="/{eventType.slug}"
-							target="_blank"
-							class="text-sm text-blue-600 hover:text-blue-700"
-						>
-							View Page
+					<div class="flex items-center gap-3 text-sm">
+						<a href="/{eventType.slug}" target="_blank" rel="noopener" class="font-medium text-primary transition-opacity hover:opacity-80">
+							View page
 						</a>
-						<span class="text-gray-300">|</span>
-						<a
-							href="/dashboard/event-types/{eventType.id}"
-							class="text-sm text-blue-600 hover:text-blue-700"
-						>
+						<span class="text-subtle">·</span>
+						<a href="/dashboard/event-types/{eventType.id}" class="font-medium text-primary transition-opacity hover:opacity-80">
 							Edit
 						</a>
 					</div>
 				</div>
 			{/each}
 		{:else}
-			<div class="bg-white rounded-lg shadow-sm p-8 text-center border border-gray-200">
-				<p class="text-gray-600 mb-4">No event types yet</p>
+			<div class="rounded-xl border border-dashed border-border bg-surface p-8 text-center">
+				<p class="mb-4 text-muted-foreground">No event types yet</p>
 				<a
 					href="/dashboard/event-types/new"
-					class="inline-block px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+					class="inline-block rounded-lg bg-primary px-4 py-2 font-semibold text-primary-foreground shadow-soft transition-all hover:bg-primary-hover"
 				>
-					Create Your First Event Type
+					Create your first event type
 				</a>
 			</div>
 		{/if}

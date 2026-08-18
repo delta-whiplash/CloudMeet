@@ -8,7 +8,7 @@
 		brandColor?: string;
 	}
 
-	let { selectedTimezone, onSelect, onClose, brandColor = '#3b82f6' }: Props = $props();
+	let { selectedTimezone, onSelect, onClose, brandColor = '#7a5828' }: Props = $props();
 
 	let searchQuery = $state('');
 	let searchInput: HTMLInputElement;

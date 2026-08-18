@@ -87,52 +87,50 @@
 	}
 </script>
 
-<div class="min-h-screen bg-gray-50">
+<div class="min-h-screen bg-background">
 	<!-- Header -->
-	<header class="bg-white shadow-sm">
-		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-			<div class="flex items-center gap-4">
-				<a href="/dashboard" class="text-gray-600 hover:text-gray-900">
-					← Back to Dashboard
-				</a>
-				<h1 class="text-2xl font-bold text-gray-900">Set Availability</h1>
-			</div>
+	<header class="sticky top-0 z-30 border-b border-border bg-surface/80 backdrop-blur-xl">
+		<div class="mx-auto flex h-16 w-full max-w-3xl items-center gap-4 px-4 sm:px-6">
+			<a href="/dashboard" class="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+				← Back to Dashboard
+			</a>
+			<h1 class="font-display text-lg font-semibold text-foreground">Set Availability</h1>
 		</div>
 	</header>
 
-	<main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+	<main class="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
 		{#if showSuccess}
-			<div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 mb-6">
-				✓ Availability saved successfully!
-			</div>
-		{/if}
+				<div class="mb-6 rounded-lg border border-success/30 bg-success-muted p-4 text-sm font-medium text-success">
+					✓ Availability saved successfully!
+				</div>
+			{/if}
 
-		{#if form?.error}
-			<div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-6">
-				Error: {form.error}
-			</div>
-		{/if}
+			{#if form?.error}
+				<div class="mb-6 rounded-lg border border-danger/30 bg-danger-muted p-4 text-sm font-medium text-danger">
+					Error: {form.error}
+				</div>
+			{/if}
 
 		<!-- Timezone Selection -->
-		<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-			<h2 class="text-lg font-semibold text-gray-900 mb-4">Your Timezone</h2>
-			<p class="text-sm text-gray-600 mb-4">
+		<div class="mb-6 rounded-2xl border border-border bg-surface p-6 shadow-soft">
+			<h2 class="font-display mb-4 text-lg font-semibold text-foreground">Your Timezone</h2>
+			<p class="mb-4 text-sm text-muted-foreground">
 				Set your timezone so that your availability is shown correctly to people booking meetings.
 			</p>
 			<div class="relative">
 				<button
 					type="button"
 					onclick={() => showTimezoneDropdown = !showTimezoneDropdown}
-					class="flex items-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:border-gray-400 transition w-full sm:w-auto"
+					class="flex w-full items-center gap-3 rounded-lg border border-border-strong bg-surface px-4 py-3 transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-auto"
 				>
-					<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg class="h-5 w-5 text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 					</svg>
 					<div class="text-left">
-						<div class="font-medium text-gray-900">{getTimezoneLabel(selectedTimezone)}</div>
-						<div class="text-sm text-gray-500">{selectedTimezone} ({getCurrentTime(selectedTimezone)})</div>
+						<div class="font-medium text-foreground">{getTimezoneLabel(selectedTimezone)}</div>
+						<div class="text-sm text-subtle">{selectedTimezone} ({getCurrentTime(selectedTimezone)})</div>
 					</div>
-					<svg class="w-5 h-5 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg class="ml-auto h-5 w-5 text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
 					</svg>
 				</button>
@@ -146,9 +144,9 @@
 			</div>
 		</div>
 
-		<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-			<h2 class="text-lg font-semibold text-gray-900 mb-4">Weekly Schedule</h2>
-			<p class="text-sm text-gray-600 mb-6">
+		<div class="mb-6 rounded-2xl border border-border bg-surface p-6 shadow-soft">
+			<h2 class="font-display mb-4 text-lg font-semibold text-foreground">Weekly Schedule</h2>
+			<p class="mb-6 text-sm text-muted-foreground">
 				Set your available hours for each day of the week. People can only book meetings during these times.
 			</p>
 
@@ -158,35 +156,35 @@
 
 				<div class="space-y-4">
 					{#each availability as day}
-						<div class="flex items-center gap-4 p-4 border border-gray-200 rounded-lg">
-							<div class="flex items-center min-w-[120px]">
+						<div class="flex items-center gap-4 rounded-lg border border-border p-4">
+							<div class="flex min-w-[120px] items-center">
 								<input
 									type="checkbox"
 									bind:checked={day.enabled}
-									class="h-4 w-4 text-blue-600 rounded border-gray-300"
+									class="h-4 w-4 rounded border-border-strong text-primary focus:ring-primary/20"
 									id="day-{day.day}"
 								/>
-								<label for="day-{day.day}" class="ml-2 font-medium text-gray-900">
+								<label for="day-{day.day}" class="ml-2 font-medium text-foreground">
 									{day.name}
 								</label>
 							</div>
 
 							{#if day.enabled}
-								<div class="flex items-center gap-2 flex-1">
+								<div class="flex flex-1 items-center gap-2">
 									<input
 										type="time"
 										bind:value={day.startTime}
-										class="px-3 py-2 border border-gray-300 rounded-md text-sm"
+										class="rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 									/>
-									<span class="text-gray-600">to</span>
+									<span class="text-muted-foreground">to</span>
 									<input
 										type="time"
 										bind:value={day.endTime}
-										class="px-3 py-2 border border-gray-300 rounded-md text-sm"
+										class="rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 									/>
 								</div>
 							{:else}
-								<span class="text-gray-400 text-sm">Unavailable</span>
+								<span class="text-sm text-subtle">Unavailable</span>
 							{/if}
 						</div>
 					{/each}
@@ -196,7 +194,7 @@
 					<button
 						type="submit"
 						disabled={saving}
-						class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+						class="rounded-lg bg-primary px-6 py-2 font-semibold text-primary-foreground shadow-soft transition-all hover:bg-primary-hover hover:shadow-glow disabled:opacity-50"
 					>
 						{saving ? 'Saving...' : 'Save Availability'}
 					</button>
@@ -212,7 +210,7 @@
 								endTime: '17:00'
 							}));
 						}}
-						class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+						class="rounded-lg border border-border bg-surface px-6 py-2 font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
 					>
 						Set Default Hours (Mon-Fri, 9-5)
 					</button>
@@ -220,9 +218,9 @@
 			</form>
 		</div>
 
-		<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-			<h3 class="font-semibold text-blue-900 mb-2">Note</h3>
-			<p class="text-sm text-blue-800">
+		<div class="rounded-lg border border-info/30 bg-info-muted p-4">
+			<h3 class="mb-2 font-semibold text-info">Note</h3>
+			<p class="text-sm text-info">
 				Your connected calendars will also be checked for conflicts. Even if you're available according to these hours,
 				if you have an event on your calendar during a time slot, it won't be shown as available to book.
 			</p>

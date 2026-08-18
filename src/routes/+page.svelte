@@ -1,260 +1,396 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
+	import { createBrandColors } from '$lib/utils/colorUtils';
+	import { detectTimezone } from '$lib/constants/timezones';
+	import { BookingCalendar, TimeSlotList, BookingForm, BookingSuccess, EventSidebar } from '$lib/components/booking';
+	import Logo from '$lib/components/Logo.svelte';
 
 	let { data }: { data: PageData } = $props();
 
-	// Strip HTML tags from description for display, preserving spacing between block elements
-	function stripHtml(html: string): string {
-		return html
-			.replace(/<\/(p|div|li|br|h[1-6])>/gi, ' ') // Add space after block elements
-			.replace(/<[^>]*>/g, '') // Remove remaining tags
-			.replace(/&nbsp;/g, ' ')
-			.replace(/\s+/g, ' ') // Collapse multiple spaces
-			.trim();
+	// Global state
+	let lang = $state<'fr' | 'en'>('fr');
+	const fr = $derived(lang === 'fr');
+	let use24h = $state(true);
+	let selectedTimezone = $state(detectTimezone());
+	let timezoneLabel = $state('Paris (UTC+2)');
+	let currentStep = $state<number>(1); // 1: Type selection, 2: Calendar date selection, 3: Slot selection
+
+	// Available event types from load
+	const eventTypesList = $derived(
+		(data.eventTypes || []).map((e) => ({
+			id: e.id,
+			slug: e.slug,
+			name: e.name,
+			duration: e.duration,
+			description: e.description
+		}))
+	);
+
+	// Meeting selection state
+	let selectedMeetingId = $state<string | null>(null);
+	let selectedMeetingTitle = $state<string>(
+		data.eventTypes && data.eventTypes.length > 0 ? data.eventTypes[0].name : 'Consultation Stratégique'
+	);
+	let selectedDuration = $state<number>(
+		data.eventTypes && data.eventTypes.length > 0 ? data.eventTypes[0].duration : 30
+	);
+	let activeSlug = $state<string>(
+		data.eventTypes && data.eventTypes.length > 0 ? data.eventTypes[0].slug : '30-min-meeting'
+	);
+
+	// Date and time slots state
+	let selectedDate = $state<string | null>(null);
+	let selectedSlot = $state<{ start: string; end: string } | null>(null);
+	let availableSlots = $state<Array<{ start: string; end: string }>>([]);
+	let availableDates = $state<Set<string>>(new Set());
+	let loading = $state(false);
+	let loadingAvailability = $state(false);
+
+	// Calendar state
+	let currentMonth = $state(new Date());
+
+	// Modal and booking form state
+	let showModal = $state(false);
+	let bookingForm = $state({
+		name: '',
+		email: '',
+		notes: ''
+	});
+	let bookingStatus = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
+	let bookingError = $state('');
+	let meetingUrl = $state<string | null>(null);
+	let meetingType = $state<'google_meet' | 'teams'>('google_meet');
+
+	// Brand colors
+	const brandColor = data.user?.brandColor || '#7a5828';
+	const colors = createBrandColors(brandColor);
+
+	function toggleTimeFormat() {
+		use24h = !use24h;
 	}
+
+	function setTimezone(tz: string, label: string) {
+		selectedTimezone = tz;
+		timezoneLabel = label;
+	}
+
+	function setLanguage(l: 'fr' | 'en') {
+		lang = l;
+	}
+
+	function formatTime(isoStr: string) {
+		const date = new Date(isoStr);
+		return new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-US', {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: !use24h,
+			timeZone: selectedTimezone
+		}).format(date);
+	}
+
+	function formatTimeRange(start: string, end: string) {
+		return `${formatTime(start)} - ${formatTime(end)}`;
+	}
+
+	function formatDisplayDate(dateStr: string) {
+		const date = new Date(dateStr + 'T12:00:00');
+		return new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-US', {
+			weekday: 'long',
+			day: 'numeric',
+			month: 'long'
+		}).format(date);
+	}
+
+	async function fetchMonthAvailability() {
+		if (!activeSlug) return;
+		loadingAvailability = true;
+		try {
+			const year = currentMonth.getFullYear();
+			const month = currentMonth.getMonth() + 1;
+			const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+			const response = await fetch(`/api/availability/month?event=${activeSlug}&month=${monthStr}`);
+			if (!response.ok) throw new Error('Failed to fetch availability');
+			const result = await response.json() as { availableDates?: string[] };
+			availableDates = new Set(result.availableDates || []);
+		} catch (error) {
+			console.error('Error fetching month availability:', error);
+			availableDates = new Set();
+		} finally {
+			loadingAvailability = false;
+		}
+	}
+
+	$effect(() => {
+		if (data.user) {
+			fetchMonthAvailability();
+		}
+	});
+
+	function handleSelectMeeting(type: { id: string; slug?: string; name: string; duration: number }) {
+		selectedMeetingId = type.id;
+		selectedMeetingTitle = type.name;
+		selectedDuration = type.duration;
+		if (type.slug) {
+			activeSlug = type.slug;
+		}
+		currentStep = 2;
+		fetchMonthAvailability();
+	}
+
+	async function handleDateSelect(dateStr: string) {
+		selectedDate = dateStr;
+		selectedSlot = null;
+		loading = true;
+		currentStep = 3;
+
+		try {
+			const response = await fetch(`/api/availability?event=${activeSlug}&date=${dateStr}`);
+			if (!response.ok) throw new Error('Failed to fetch availability');
+			const result = await response.json() as { slots?: Array<{ start: string; end: string }> };
+			availableSlots = result.slots || [];
+		} catch (error) {
+			console.error('Error fetching availability:', error);
+			availableSlots = [];
+		} finally {
+			loading = false;
+		}
+	}
+
+	function handleSelectSlot(slot: { start: string; end: string }) {
+		selectedSlot = slot;
+	}
+
+	function openBookingModal() {
+		showModal = true;
+		bookingStatus = 'idle';
+		bookingError = '';
+	}
+
+	function closeBookingModal() {
+		showModal = false;
+	}
+
+	async function handleSubmit(e: Event) {
+		e.preventDefault();
+		bookingStatus = 'submitting';
+		bookingError = '';
+
+		try {
+			const response = await fetch('/api/bookings', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					eventSlug: activeSlug,
+					startTime: selectedSlot?.start,
+					endTime: selectedSlot?.end,
+					attendeeName: bookingForm.name,
+					attendeeEmail: bookingForm.email,
+					notes: bookingForm.notes,
+					timezone: selectedTimezone
+				})
+			});
+
+			if (!response.ok) {
+				const errData = await response.json() as { message?: string };
+				throw new Error(errData.message || 'Failed to create booking');
+			}
+
+			const result = await response.json() as { meetingUrl?: string; meetingType?: 'google_meet' | 'teams' };
+			meetingUrl = result.meetingUrl || null;
+			meetingType = result.meetingType || 'google_meet';
+			bookingStatus = 'success';
+		} catch (error: any) {
+			console.error('Booking error:', error);
+			bookingError = error.message || 'Failed to create booking';
+			bookingStatus = 'error';
+		}
+	}
+
+	function prevMonth() {
+		currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+		fetchMonthAvailability();
+	}
+
+	function nextMonth() {
+		currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+		fetchMonthAvailability();
+	}
+
+	function goToToday() {
+		currentMonth = new Date();
+		fetchMonthAvailability();
+	}
+
+	const containerMaxWidthClass = $derived(
+		currentStep === 1
+			? 'max-w-md'
+			: currentStep === 2
+				? 'max-w-3xl'
+				: 'max-w-6xl'
+	);
+
+	const gridColsClass = $derived(
+		currentStep === 1
+			? 'grid-cols-1'
+			: currentStep === 2
+				? 'grid-cols-1 md:grid-cols-2'
+				: 'grid-cols-1 md:grid-cols-3'
+	);
+
+	const slotRecapText = $derived(
+		selectedDate && selectedSlot
+			? `${selectedMeetingTitle} — ${formatDisplayDate(selectedDate)} ${lang === 'fr' ? 'à' : 'at'} ${formatTime(selectedSlot.start)} (${timezoneLabel})`
+			: ''
+	);
 </script>
 
-{#if data.user && data.eventTypes}
-	<!-- Event Types View -->
-	<div class="min-h-screen bg-gray-50 py-12">
-		<div class="max-w-2xl mx-auto px-4">
-			<!-- User Header -->
-			<div class="text-center mb-10">
-				{#if data.user.profileImage}
-					<img
-						src={data.user.profileImage}
-						alt={data.user.name}
-						class="w-24 h-24 rounded-full mx-auto mb-4 object-cover shadow-md"
-					/>
-				{:else}
-					<div class="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-3xl shadow-md" style="background-color: {data.user.brandColor || '#3b82f6'}">
-						{data.user.name?.charAt(0) || 'U'}
+<svelte:head>
+	<title>CloudMeet — {fr ? 'Réservation de rendez-vous' : 'Meeting scheduling'}</title>
+	<meta
+		name="description"
+		content={fr
+			? 'CloudMeet — plateforme de réservation de rendez-vous open-source et auto-hébergée.'
+			: 'CloudMeet — open-source, self-hosted meeting scheduling.'}
+	/>
+</svelte:head>
+
+{#if data.user}
+	<!-- Progressive booking flow (configured host) -->
+	<section class="mx-auto flex w-full max-w-7xl flex-col items-center justify-center px-4 py-10 sm:px-6">
+		<h1 class="sr-only">{data.user.name} — CloudMeet</h1>
+		<div
+			class="card-container w-full {containerMaxWidthClass} standard-card overflow-hidden rounded-2xl"
+			style="--brand-color:{brandColor}; --brand-light:{colors.light}; --brand-lighter:{colors.lighter}; --brand-dark:{colors.dark};"
+		>
+			<div class="grid {gridColsClass} divide-border md:divide-x">
+				<EventSidebar
+					user={data.user}
+					eventType={null}
+					eventTypes={eventTypesList}
+					selectedMeetingId={selectedMeetingId}
+					onSelectMeeting={handleSelectMeeting}
+					{selectedDate}
+					{selectedSlot}
+					{brandColor}
+					{formatTime}
+					{selectedTimezone}
+					{timezoneLabel}
+					onSelectTimezone={setTimezone}
+					{use24h}
+					onToggleTimeFormat={toggleTimeFormat}
+					{lang}
+					onSetLanguage={setLanguage}
+				/>
+
+				{#if currentStep >= 2}
+					<div class="step-panel-anim panel-visible h-full w-full min-w-0 flex-col flex-1 overflow-hidden">
+						<BookingCalendar
+							{currentMonth}
+							{selectedDate}
+							{availableDates}
+							{brandColor}
+							brandLighter={colors.lighter}
+							brandDark={colors.dark}
+							onDateSelect={handleDateSelect}
+							onPrevMonth={prevMonth}
+							onNextMonth={nextMonth}
+							onGoToToday={goToToday}
+							{lang}
+						/>
 					</div>
 				{/if}
-				<h1 class="text-3xl font-bold text-gray-900 mb-2">{data.user.name}</h1>
-				<p class="text-gray-600">Select a meeting type to book a time</p>
-			</div>
 
-			<!-- Event Types List -->
-			{#if data.eventTypes.length > 0}
-				<div class="space-y-4">
-					{#each data.eventTypes as eventType}
-						<a
-							href="/{eventType.slug}"
-							class="block bg-white rounded-lg shadow-sm hover:shadow-md transition-all p-5 border-l-4 hover:translate-x-1"
-							style="border-left-color: {data.user.brandColor || '#3b82f6'}"
-						>
-							<div class="flex justify-between items-start">
-								<div class="flex-1 min-w-0">
-									<h2 class="text-lg font-semibold text-gray-900 mb-1">{eventType.name}</h2>
-									{#if eventType.description}
-										<p class="text-gray-600 text-sm line-clamp-2">{stripHtml(eventType.description)}</p>
-									{/if}
-								</div>
-								<div class="flex items-center text-sm font-medium ml-4 px-3 py-1 rounded-full" style="background-color: {data.user.brandColor || '#3b82f6'}20; color: {data.user.brandColor || '#3b82f6'}">
-									<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-										></path>
-									</svg>
-									<span>{eventType.duration} min</span>
-								</div>
-							</div>
-						</a>
-					{/each}
-				</div>
-			{:else}
-				<div class="bg-white rounded-lg shadow-md p-12 text-center">
-					<svg
-						class="w-16 h-16 mx-auto mb-4 text-gray-400"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-						></path>
-					</svg>
-					<h2 class="text-xl font-semibold text-gray-900 mb-2">No Available Meeting Types</h2>
-					<p class="text-gray-600">Check back later.</p>
-				</div>
-			{/if}
+				{#if currentStep >= 3 && selectedDate}
+					<div class="step-panel-anim panel-visible h-full w-full min-w-0 flex-col flex-1 overflow-hidden">
+						<TimeSlotList
+							{selectedDate}
+							{availableSlots}
+							{selectedSlot}
+							{loading}
+							{brandColor}
+							{formatTime}
+							formatDateDisplay={formatDisplayDate}
+							onSelectSlot={handleSelectSlot}
+							onConfirm={openBookingModal}
+							{lang}
+						/>
+					</div>
+				{/if}
+			</div>
 		</div>
-	</div>
+	</section>
+
+	{#if showModal}
+		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+			<div class="standard-card animate-fade-in relative w-full max-w-md rounded-2xl p-6 sm:p-7">
+				<button
+					type="button"
+					onclick={closeBookingModal}
+					class="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+					aria-label={fr ? 'Fermer' : 'Close'}
+				>
+					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+					</svg>
+				</button>
+
+				{#if bookingStatus !== 'success'}
+					<BookingForm
+						bind:bookingForm
+						{bookingStatus}
+						{bookingError}
+						{slotRecapText}
+						{brandColor}
+						brandDark={colors.dark}
+						onSubmit={handleSubmit}
+						{lang}
+					/>
+				{:else}
+					<BookingSuccess
+						eventName={selectedMeetingTitle}
+						selectedDate={selectedDate || ''}
+						selectedSlot={selectedSlot!}
+						{meetingUrl}
+						{meetingType}
+						{brandColor}
+						formattedDateText={selectedDate ? formatDisplayDate(selectedDate) : ''}
+						formattedTimeText={selectedSlot ? formatTime(selectedSlot.start) : ''}
+						onClose={closeBookingModal}
+						{lang}
+					/>
+				{/if}
+			</div>
+		</div>
+	{/if}
 {:else}
-	<!-- Landing Page -->
-	<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-		<!-- Header -->
-		<div class="text-center mb-16">
-			<h1 class="text-5xl font-bold text-gray-900 mb-4">
-				Meeting Scheduler
-			</h1>
-			<p class="text-xl text-gray-600 mb-8">
-				Free, open-source meeting scheduling on Cloudflare
+	<!-- No host configured yet — minimal get-started state -->
+	<div class="mx-auto flex min-h-[68vh] w-full max-w-md flex-col items-center justify-center px-4 text-center">
+		<div class="animate-fade-in">
+			<Logo size={56} showWordmark={false} class="mx-auto" />
+			<h1 class="font-display mt-5 text-3xl font-semibold text-foreground">CloudMeet</h1>
+			<p class="mt-2 text-muted-foreground">
+				{fr
+					? "Configurez votre profil pour commencer à recevoir des réservations."
+					: 'Set up your profile to start receiving bookings.'}
 			</p>
-			<div class="flex justify-center gap-4">
-				<a
-					href="/auth/login"
-					class="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition"
-				>
-					Login with Google
-				</a>
-				<a
-					href="/dashboard"
-					class="inline-flex items-center px-8 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition"
-				>
-					Go to Dashboard
-				</a>
-			</div>
-		</div>
-
-		<!-- Features -->
-		<div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-			<div class="bg-white p-8 rounded-xl shadow-sm">
-				<div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-					<svg
-						class="w-6 h-6 text-blue-600"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-						></path>
-					</svg>
-				</div>
-				<h3 class="text-lg font-semibold mb-2 text-gray-900">Google Calendar Sync</h3>
-				<p class="text-gray-600 text-sm">
-					Automatically sync with your Google Calendar to prevent double bookings
-				</p>
-			</div>
-
-			<div class="bg-white p-8 rounded-xl shadow-sm">
-				<div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-					<svg
-						class="w-6 h-6 text-green-600"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-						></path>
-					</svg>
-				</div>
-				<h3 class="text-lg font-semibold mb-2 text-gray-900">Set Your Hours</h3>
-				<p class="text-gray-600 text-sm">
-					Define your availability and let people book meetings during those times
-				</p>
-			</div>
-
-			<div class="bg-white p-8 rounded-xl shadow-sm">
-				<div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-					<svg
-						class="w-6 h-6 text-purple-600"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M13 10V3L4 14h7v7l9-11h-7z"
-						></path>
-					</svg>
-				</div>
-				<h3 class="text-lg font-semibold mb-2 text-gray-900">Lightning Fast</h3>
-				<p class="text-gray-600 text-sm">
-					Built on Cloudflare's edge network for instant page loads worldwide
-				</p>
-			</div>
-		</div>
-
-		<!-- How It Works -->
-		<div class="mt-20 max-w-3xl mx-auto">
-			<h2 class="text-3xl font-bold text-center text-gray-900 mb-12">How It Works</h2>
-			<div class="space-y-6">
-				<div class="flex gap-4">
-					<div
-						class="flex-shrink-0 w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
-					>
-						1
-					</div>
-					<div>
-						<h4 class="font-semibold text-gray-900 mb-1">Connect Your Google Calendar</h4>
-						<p class="text-gray-600 text-sm">
-							Log in with Google and grant access to your calendar
-						</p>
-					</div>
-				</div>
-
-				<div class="flex gap-4">
-					<div
-						class="flex-shrink-0 w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
-					>
-						2
-					</div>
-					<div>
-						<h4 class="font-semibold text-gray-900 mb-1">Set Your Availability</h4>
-						<p class="text-gray-600 text-sm">
-							Define your working hours and create event types (30 min meetings, consultations, etc.)
-						</p>
-					</div>
-				</div>
-
-				<div class="flex gap-4">
-					<div
-						class="flex-shrink-0 w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
-					>
-						3
-					</div>
-					<div>
-						<h4 class="font-semibold text-gray-900 mb-1">Share Your Link</h4>
-						<p class="text-gray-600 text-sm">
-							Get a personalized booking link to share with others
-						</p>
-					</div>
-				</div>
-
-				<div class="flex gap-4">
-					<div
-						class="flex-shrink-0 w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
-					>
-						4
-					</div>
-					<div>
-						<h4 class="font-semibold text-gray-900 mb-1">Get Booked</h4>
-						<p class="text-gray-600 text-sm">
-							When someone books a meeting, it's automatically added to your Google Calendar
-						</p>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- CTA -->
-		<div class="mt-20 text-center">
 			<a
-				href="/auth/login"
-				class="inline-flex items-center px-12 py-4 border border-transparent text-lg font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition"
+				href="/dashboard"
+				class="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:bg-primary-hover hover:shadow-glow"
 			>
-				Get Started - It's Free
+				{fr ? 'Accéder au tableau de bord' : 'Go to dashboard'}
+				<svg
+					class="h-4 w-4"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M5 12h14M13 5l7 7-7 7" />
+				</svg>
 			</a>
 		</div>
 	</div>
-</div>
 {/if}

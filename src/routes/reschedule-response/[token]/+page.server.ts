@@ -223,7 +223,7 @@ export const actions: Actions = {
 							hostEmail: proposal.host_email,
 							appUrl: env.APP_URL || '',
 							timeFormat,
-							brandColor: proposal.brand_color || '#3b82f6',
+							brandColor: proposal.brand_color || '#7a5828',
 							attendeeNotes: proposal.attendee_notes
 						},
 						proposal.host_email,
@@ -348,7 +348,7 @@ export const actions: Actions = {
 							hostEmail: proposal.host_email,
 							appUrl: env.APP_URL || '',
 							timeFormat,
-							brandColor: proposal.brand_color || '#3b82f6',
+							brandColor: proposal.brand_color || '#7a5828',
 							attendeeNotes: proposal.attendee_notes,
 							customMessage: 'Attendee declined the reschedule proposal and cancelled the meeting.'
 						},

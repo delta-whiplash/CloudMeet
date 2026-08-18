@@ -1,30 +1,345 @@
 @import "tailwindcss";
 
+/* Class-based dark mode */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ----------------------------------------------------------------------------
+   Self-hosted fonts (no external CDN dependency)
+   Fraunces — editorial display serif (caractère, premium)
+   Manrope   — clean grotesque for body / UI / dates
+---------------------------------------------------------------------------- */
+@font-face {
+	font-family: 'Manrope';
+	src: url('/fonts/manrope-latin-wght-normal.woff2') format('woff2-variations');
+	font-weight: 200 800;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Fraunces';
+	src: url('/fonts/fraunces-latin-full-normal.woff2') format('woff2-variations');
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Fraunces';
+	src: url('/fonts/fraunces-latin-full-italic.woff2') format('woff2-variations');
+	font-weight: 100 900;
+	font-style: italic;
+	font-display: swap;
+}
+
+/* ----------------------------------------------------------------------------
+   Semantic design tokens — light theme
+   Warm cream/ivory neutrals + antique bronze accent (luxe)
+---------------------------------------------------------------------------- */
 @layer base {
 	:root {
-		--color-primary: #2563eb;
-		--color-primary-hover: #1d4ed8;
+		--background: #faf7f1;
+		--foreground: #211e1a;
+		--surface: #fffefb;
+		--surface-2: #f3eee3;
+		--muted-foreground: #6f665a;
+		--subtle: #a59c8d;
+		--border: #ece4d5;
+		--border-strong: #dccfb6;
+
+		--primary: #7a5828;
+		--primary-hover: #674820;
+		--primary-foreground: #ffffff;
+		--primary-muted: #f1e7d0;
+		--primary-muted-foreground: #6f4f1d;
+
+		--ring: #7a5828;
+
+		--success: #3d7a5a;
+		--success-muted: #e4efe8;
+		--warning: #a9761a;
+		--warning-muted: #f6ead0;
+		--danger: #a8443b;
+		--danger-muted: #f3e0dc;
+		--info: #356990;
+		--info-muted: #e0ecf4;
+
+		--shadow-card: 0 1px 2px rgba(60, 40, 15, 0.05), 0 24px 48px -24px rgba(60, 40, 15, 0.22);
+		--shadow-soft: 0 1px 2px rgba(60, 40, 15, 0.05), 0 10px 28px -16px rgba(60, 40, 15, 0.16);
+		--shadow-glow: 0 0 0 4px color-mix(in oklab, var(--primary) 18%, transparent);
+
+		color-scheme: light;
+	}
+
+	/* Dark theme — deep warm espresso surfaces, glowing champagne gold */
+	.dark {
+		--background: #171411;
+		--foreground: #f4eee2;
+		--surface: #221d17;
+		--surface-2: #2c251d;
+		--muted-foreground: #a99e8c;
+		--subtle: #7a7062;
+		--border: #332a20;
+		--border-strong: #463a2c;
+
+		--primary: #d4af6a;
+		--primary-hover: #e2c182;
+		--primary-foreground: #241a08;
+		--primary-muted: #3a2e15;
+		--primary-muted-foreground: #d4af6a;
+
+		--ring: #d4af6a;
+
+		--success: #6fc89a;
+		--success-muted: #123026;
+		--warning: #e0b25e;
+		--warning-muted: #3a2a10;
+		--danger: #e88a7d;
+		--danger-muted: #3a1714;
+		--info: #7db8e0;
+		--info-muted: #0f2738;
+
+		--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45), 0 28px 56px -28px rgba(0, 0, 0, 0.75);
+		--shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px -20px rgba(0, 0, 0, 0.65);
+		--shadow-glow: 0 0 0 4px color-mix(in oklab, var(--primary) 22%, transparent);
+
+		color-scheme: dark;
+	}
+
+	*,
+	::before,
+	::after {
+		border-color: var(--border);
+	}
+
+	html {
+		font-optical-sizing: auto;
+		-webkit-text-size-adjust: 100%;
+		scrollbar-gutter: stable;
+	}
+
+	body {
+		font-family: var(--font-sans);
+		background-color: var(--background);
+		color: var(--foreground);
+		line-height: 1.6;
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+		transition: background-color 0.3s ease, color 0.3s ease;
+	}
+
+	::selection {
+		background: color-mix(in oklab, var(--primary) 24%, transparent);
+		color: var(--foreground);
+	}
+
+	/* Accessible focus ring */
+	:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: 2px;
+		border-radius: 4px;
+	}
+
+	/* Respect reduced motion */
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		::before,
+		::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+			scroll-behavior: auto !important;
+		}
 	}
 }
 
+/* ----------------------------------------------------------------------------
+   Map semantic tokens to Tailwind utilities (inline = follow runtime swap)
+   → bg-surface, text-muted-foreground, border-default, bg-primary, etc.
+---------------------------------------------------------------------------- */
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-surface: var(--surface);
+	--color-surface-2: var(--surface-2);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-subtle: var(--subtle);
+	--color-border: var(--border);
+	--color-border-strong: var(--border-strong);
+
+	--color-primary: var(--primary);
+	--color-primary-hover: var(--primary-hover);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary-muted: var(--primary-muted);
+	--color-primary-muted-foreground: var(--primary-muted-foreground);
+
+	--color-success: var(--success);
+	--color-success-muted: var(--success-muted);
+	--color-warning: var(--warning);
+	--color-warning-muted: var(--warning-muted);
+	--color-danger: var(--danger);
+	--color-danger-muted: var(--danger-muted);
+	--color-info: var(--info);
+	--color-info-muted: var(--info-muted);
+
+	--color-ring: var(--ring);
+
+	--font-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	--font-headline: 'Fraunces', Georgia, Cambria, 'Times New Roman', serif;
+}
+
 @layer utilities {
+	/* Display serif with Fraunces character axes — SOFT raised for a warmer, luxe feel */
+	.font-display {
+		font-family: var(--font-headline);
+		font-optical-sizing: auto;
+		font-variation-settings: 'opsz' 144, 'SOFT' 60, 'WONK' 0;
+		letter-spacing: -0.02em;
+	}
+
+	.font-display-tight {
+		font-family: var(--font-headline);
+		font-optical-sizing: auto;
+		font-variation-settings: 'opsz' 14, 'SOFT' 25, 'WONK' 0;
+		letter-spacing: -0.01em;
+	}
+
+	/* Layered card shadow that reads on both themes */
+	.shadow-card {
+		box-shadow: var(--shadow-card);
+	}
+	.shadow-soft {
+		box-shadow: var(--shadow-soft);
+	}
+	.shadow-glow {
+		box-shadow: var(--shadow-glow);
+	}
+
+	/* Subtle warm grain / mesh background atmosphere (single accent) */
+	.bg-grain {
+		background-image: radial-gradient(
+				circle at 15% 20%,
+				color-mix(in oklab, var(--primary) 8%, transparent) 0%,
+				transparent 40%
+			),
+			radial-gradient(
+				circle at 85% 0%,
+				color-mix(in oklab, var(--primary) 7%, transparent) 0%,
+				transparent 38%
+			);
+	}
+
+	/* 60FPS hardware-accelerated container expansion */
+	.card-container {
+		transition: max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+		will-change: max-width;
+	}
+
+	.step-panel-anim {
+		transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+		will-change: opacity, transform;
+	}
+
+	.panel-hidden {
+		display: none !important;
+		opacity: 0;
+		transform: translateX(16px);
+	}
+
+	.panel-visible {
+		display: flex !important;
+		opacity: 1;
+		transform: translateX(0);
+	}
+
+	/* Themed standard surfaces (used by booking flow) */
+	.standard-card {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		box-shadow: var(--shadow-card);
+	}
+
+	.standard-interactive {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		transition: background-color 0.15s ease-out, border-color 0.15s ease-out, transform 0.15s ease-out;
+	}
+
+	.standard-interactive:hover {
+		border-color: var(--border-strong);
+		background-color: var(--surface-2);
+	}
+
+	.standard-interactive.active {
+		border-color: var(--primary);
+		background-color: var(--primary-muted);
+		color: var(--primary-muted-foreground);
+		outline: 2px solid var(--primary);
+		outline-offset: -1px;
+	}
+
+	/* Legacy brand helpers (booking flow fallback — per-user brand overrides via --brand-color) */
+	.bg-brand-50 {
+		background-color: var(--primary-muted);
+	}
+	.bg-brand-600 {
+		background-color: var(--primary);
+	}
+	.bg-brand-700 {
+		background-color: var(--primary-hover);
+	}
+	.text-brand-600 {
+		color: var(--primary);
+	}
+	.text-brand-700 {
+		color: var(--primary-hover);
+	}
+	.border-brand-200 {
+		border-color: var(--border);
+	}
+	.border-brand-600 {
+		border-color: var(--primary);
+	}
+
 	.animate-fade-in {
-		animation: fadeIn 0.3s ease-in-out;
+		animation: fadeIn 0.35s ease-out both;
 	}
 
 	@keyframes fadeIn {
-		from { opacity: 0; }
-		to { opacity: 1; }
+		from {
+			opacity: 0;
+			transform: translateY(6px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 
-	/* Custom scrollbar styling */
+	.animate-rise {
+		animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	@keyframes rise {
+		from {
+			opacity: 0;
+			transform: translateY(14px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	/* Themed thin scrollbar */
 	.scrollbar-thin {
 		scrollbar-width: thin;
-		scrollbar-color: #d1d5db transparent;
+		scrollbar-color: var(--border-strong) transparent;
 	}
 
 	.scrollbar-thin::-webkit-scrollbar {
 		width: 6px;
+		height: 6px;
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-track {
@@ -32,11 +347,11 @@
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-thumb {
-		background-color: #d1d5db;
-		border-radius: 3px;
+		background-color: var(--border-strong);
+		border-radius: 4px;
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-		background-color: #9ca3af;
+		background-color: var(--subtle);
 	}
 }

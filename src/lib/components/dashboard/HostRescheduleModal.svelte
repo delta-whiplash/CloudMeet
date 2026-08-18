@@ -144,40 +144,51 @@
 			onClose();
 		}
 	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (booking && e.key === 'Escape') onClose();
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 {#if booking}
 	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div
-		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
 		onclick={handleBackdropClick}
 	>
-		<div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+		<div
+			role="dialog"
+			aria-modal="true"
+			aria-label="Propose new time"
+			class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-surface shadow-card"
+		>
 			<!-- Header -->
-			<div class="p-6 border-b border-gray-200">
-				<div class="flex justify-between items-start">
+			<div class="border-b border-border p-6">
+				<div class="flex items-start justify-between">
 					<div>
-						<h2 class="text-xl font-semibold text-gray-900">Propose New Time</h2>
-						<p class="text-sm text-gray-600 mt-1">
+						<h2 class="font-display text-xl font-semibold text-foreground">Propose New Time</h2>
+						<p class="mt-1 text-sm text-muted-foreground">
 							Current: {formatCompactDateTime(new Date(booking.start_time))}
 						</p>
 					</div>
-					<button onclick={onClose} class="text-gray-400 hover:text-gray-600">
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<button onclick={onClose} class="text-subtle transition-colors hover:text-foreground">
+						<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
 						</svg>
 					</button>
 				</div>
-				<div class="mt-3 bg-gray-50 rounded-lg p-3">
-					<p class="text-sm"><span class="text-gray-600">Meeting:</span> <span class="font-medium">{booking.event_type_name}</span></p>
-					<p class="text-sm"><span class="text-gray-600">With:</span> <span class="font-medium">{booking.attendee_name}</span></p>
+				<div class="mt-3 rounded-lg bg-surface-2 p-3">
+					<p class="text-sm"><span class="text-muted-foreground">Meeting:</span> <span class="font-medium text-foreground">{booking.event_type_name}</span></p>
+					<p class="text-sm"><span class="text-muted-foreground">With:</span> <span class="font-medium text-foreground">{booking.attendee_name}</span></p>
 				</div>
 			</div>
 
 			<!-- Body -->
 			<div class="p-6">
 				{#if error}
-					<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+					<div class="mb-4 rounded-lg border border-danger/30 bg-danger-muted p-3 text-sm font-medium text-danger">
 						{error}
 					</div>
 				{/if}
@@ -185,21 +196,21 @@
 				<div class="flex gap-6">
 					<!-- Calendar -->
 					<div class="flex-1">
-						<div class="flex items-center justify-between mb-4">
-							<button onclick={prevMonth} class="p-1 hover:bg-gray-100 rounded">
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<div class="mb-4 flex items-center justify-between">
+							<button onclick={prevMonth} class="rounded p-1 text-muted-foreground transition-colors hover:bg-surface-2">
+								<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
 								</svg>
 							</button>
-							<span class="font-medium">{monthName}</span>
-							<button onclick={nextMonth} class="p-1 hover:bg-gray-100 rounded">
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<span class="font-medium text-foreground">{monthName}</span>
+							<button onclick={nextMonth} class="rounded p-1 text-muted-foreground transition-colors hover:bg-surface-2">
+								<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
 								</svg>
 							</button>
 						</div>
 
-						<div class="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
+						<div class="mb-2 grid grid-cols-7 gap-1 text-center text-xs text-subtle">
 							<div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
 						</div>
 
@@ -209,11 +220,11 @@
 									type="button"
 									disabled={day.isPast || !day.isCurrentMonth}
 									onclick={() => selectDate(day.date)}
-									class="aspect-square flex items-center justify-center text-sm rounded-lg transition
-										{day.isCurrentMonth ? '' : 'text-gray-300'}
-										{day.isPast ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-blue-50'}
+									class="flex aspect-square items-center justify-center rounded-lg text-sm transition
+										{day.isCurrentMonth ? '' : 'text-subtle'}
+										{day.isPast ? 'cursor-not-allowed text-subtle' : 'hover:bg-surface-2'}
 										{day.isToday ? 'font-bold' : ''}
-										{selectedDate === formatDateKey(day.date) ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}"
+										{selectedDate === formatDateKey(day.date) ? 'bg-primary text-primary-foreground hover:bg-primary-hover' : ''}"
 								>
 									{day.date.getDate()}
 								</button>
@@ -223,7 +234,7 @@
 
 					<!-- Time slots -->
 					<div class="flex-1">
-						<h3 class="font-medium text-gray-900 mb-3">
+						<h3 class="mb-3 font-medium text-foreground">
 							{#if selectedDate}
 								Available times
 							{:else}
@@ -232,27 +243,27 @@
 						</h3>
 
 						{#if loadingSlots}
-							<div class="text-center py-8 text-gray-500">Loading...</div>
+							<div class="py-8 text-center text-subtle">Loading...</div>
 						{:else if selectedDate && availableSlots.length === 0}
-							<div class="text-center py-8 text-gray-500">No available times</div>
+							<div class="py-8 text-center text-subtle">No available times</div>
 						{:else if selectedDate}
-							<div class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+							<div class="scrollbar-thin grid max-h-64 grid-cols-2 gap-2 overflow-y-auto">
 								{#each availableSlots as slot}
 									<button
 										type="button"
 										onclick={() => selectSlot(slot)}
-										class="px-3 py-2 text-sm border rounded-lg transition
+										class="rounded-lg border px-3 py-2 text-sm transition
 											{selectedTime === slot.start
-												? 'bg-blue-600 text-white border-blue-600'
-												: 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'}"
+												? 'border-primary bg-primary text-primary-foreground'
+												: 'border-border-strong text-muted-foreground hover:border-primary hover:bg-primary-muted hover:text-primary'}"
 									>
 										{formatSlotTime(slot.start)}
 									</button>
 								{/each}
 							</div>
 						{:else}
-							<div class="text-center py-8 text-gray-400">
-								<svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<div class="py-8 text-center text-subtle">
+								<svg class="mx-auto mb-2 h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
 								</svg>
 								<p class="text-sm">Pick a date to see times</p>
@@ -263,25 +274,25 @@
 
 				<!-- Message -->
 				<div class="mt-6">
-					<label for="message" class="block text-sm font-medium text-gray-700 mb-2">
+					<label for="message" class="mb-2 block text-sm font-medium text-foreground">
 						Message to attendee (optional)
 					</label>
 					<textarea
 						id="message"
 						bind:value={message}
 						rows="3"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+						class="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-foreground transition-colors placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 						placeholder="Let them know why you need to reschedule..."
 					></textarea>
 				</div>
 			</div>
 
 			<!-- Footer -->
-			<div class="p-6 border-t border-gray-200 flex gap-3 justify-end">
+			<div class="flex justify-end gap-3 border-t border-border p-6">
 				<button
 					type="button"
 					onclick={onClose}
-					class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+					class="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
 				>
 					Cancel
 				</button>
@@ -289,7 +300,7 @@
 					type="button"
 					onclick={handleSubmit}
 					disabled={!selectedDate || !selectedTime || submitting}
-					class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+					class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-soft transition-all hover:bg-primary-hover hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{submitting ? 'Sending...' : 'Send Proposal'}
 				</button>

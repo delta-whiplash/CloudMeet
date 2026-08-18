@@ -119,23 +119,23 @@
 	}
 </script>
 
-<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-	<h3 class="text-lg font-semibold text-gray-900 mb-2">Calendar Integrations</h3>
-	<p class="text-sm text-gray-600 mb-4">
+<div class="rounded-2xl border border-border bg-surface p-6 shadow-soft">
+	<h3 class="font-display mb-2 text-lg font-semibold text-foreground">Calendar Integrations</h3>
+	<p class="mb-4 text-sm text-muted-foreground">
 		Connect your calendars to check availability and send invites.
 	</p>
 
 	{#if error}
-		<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+		<div class="mb-4 rounded-lg border border-danger/30 bg-danger-muted p-3 text-sm font-medium text-danger">
 			{error}
 		</div>
 	{/if}
 
 	<div class="space-y-4">
 		<!-- Google Calendar -->
-		<div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+		<div class="flex items-center justify-between rounded-lg bg-surface-2 p-4">
 			<div class="flex items-center gap-3">
-				<div class="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm">
+				<div class="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface shadow-soft">
 					<!-- Google Calendar icon -->
 					<svg class="w-6 h-6" viewBox="0 0 512 512" fill="none">
 						<path d="M390.736 121.264H121.264V390.736H390.736V121.264Z" fill="white"/>
@@ -149,12 +149,12 @@
 					</svg>
 				</div>
 				<div>
-					<h4 class="font-medium text-gray-900">Google Calendar</h4>
-					<p class="text-sm text-gray-600">
+					<h4 class="font-medium text-foreground">Google Calendar</h4>
+					<p class="text-sm text-muted-foreground">
 						{#if user?.googleConnected}
-							<span class="text-green-600">Connected</span> <span class="text-gray-500">(via login)</span>
+							<span class="text-success">Connected</span> <span class="text-subtle">(via login)</span>
 						{:else}
-							<span class="text-gray-500">Not connected</span>
+							<span class="text-subtle">Not connected</span>
 						{/if}
 					</p>
 				</div>
@@ -162,9 +162,9 @@
 		</div>
 
 		<!-- Outlook Calendar -->
-		<div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+		<div class="flex items-center justify-between rounded-lg bg-surface-2 p-4">
 			<div class="flex items-center gap-3">
-				<div class="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm">
+				<div class="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface shadow-soft">
 					<!-- Microsoft Outlook icon -->
 					<svg class="w-6 h-6" viewBox="0 0 48 48">
 						<path fill="#40c4ff" d="M31.323,8.502L7.075,23.872l-2.085-3.29v-2.835c0-1.032,0.523-1.994,1.389-2.556l14.095-9.146c2.147-1.393,4.914-1.394,7.061-0.001L31.323,8.502z"/>
@@ -177,14 +177,14 @@
 					</svg>
 				</div>
 				<div>
-					<h4 class="font-medium text-gray-900">Outlook Calendar</h4>
+					<h4 class="font-medium text-foreground">Outlook Calendar</h4>
 					<p class="text-sm">
 						{#if !outlookConfigured}
-							<span class="text-gray-500">Not configured</span>
+							<span class="text-subtle">Not configured</span>
 						{:else if user?.outlookConnected}
-							<span class="text-green-600">Connected</span>
+							<span class="text-success">Connected</span>
 						{:else}
-							<span class="text-gray-500">Not connected</span>
+							<span class="text-subtle">Not connected</span>
 						{/if}
 					</p>
 				</div>
@@ -193,14 +193,14 @@
 				{#if user?.outlookConnected}
 					<button
 						onclick={disconnectOutlook}
-						class="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+						class="rounded-lg px-3 py-1.5 text-sm font-medium text-danger transition-colors hover:bg-danger-muted"
 					>
 						Disconnect
 					</button>
 				{:else}
 					<a
 						href="/auth/outlook"
-						class="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
+						class="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-soft transition-all hover:bg-primary-hover"
 					>
 						Connect
 					</a>
@@ -211,22 +211,22 @@
 
 	<!-- Global Calendar Settings -->
 	{#if hasGoogle || hasOutlook}
-		<div class="mt-6 pt-6 border-t border-gray-200">
-			<h4 class="font-medium text-gray-900 mb-1">Default Calendar Settings</h4>
-			<p class="text-sm text-gray-600 mb-4">
+		<div class="mt-6 border-t border-border pt-6">
+			<h4 class="mb-1 font-medium text-foreground">Default Calendar Settings</h4>
+			<p class="mb-4 text-sm text-muted-foreground">
 				These settings apply to all event types unless overridden.
 			</p>
 
 			<div class="space-y-4">
 				<!-- Check availability from -->
 				<div>
-					<label for="availabilityCalendars" class="block text-sm font-medium text-gray-700 mb-1">
+					<label for="availabilityCalendars" class="mb-1 block text-sm font-medium text-foreground">
 						Check availability from
 					</label>
 					<select
 						id="availabilityCalendars"
 						bind:value={availabilityCalendars}
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+						class="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-foreground transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 					>
 						{#if hasGoogle}
 							<option value="google">Google Calendar only</option>
@@ -243,33 +243,33 @@
 				<!-- Google Calendar Selection -->
 				{#if hasGoogle && (availabilityCalendars === 'google' || availabilityCalendars === 'both')}
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-2">
+						<label class="mb-2 block text-sm font-medium text-foreground">
 							Google calendars to check
 						</label>
 						{#if loadingCalendars}
-							<p class="text-sm text-gray-500">Loading calendars...</p>
+							<p class="text-sm text-subtle">Loading calendars...</p>
 						{:else if googleCalendars.length === 0}
-							<p class="text-sm text-gray-500">No calendars found</p>
+							<p class="text-sm text-subtle">No calendars found</p>
 						{:else}
-							<div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+							<div class="scrollbar-thin max-h-48 space-y-2 overflow-y-auto rounded-lg border border-border p-3">
 								{#each googleCalendars as calendar}
-									<label class="flex items-center gap-2 cursor-pointer">
+									<label class="flex cursor-pointer items-center gap-2">
 										<input
 											type="checkbox"
 											checked={selectedCalendarIds.has(calendar.id)}
 											onchange={() => toggleCalendar(calendar.id)}
-											class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+											class="h-4 w-4 rounded border-border-strong text-primary focus:ring-primary/20"
 										/>
-										<span class="text-sm text-gray-700">
+										<span class="text-sm text-muted-foreground">
 											{calendar.summary}
 											{#if calendar.primary}
-												<span class="text-xs text-gray-500">(Primary)</span>
+												<span class="text-xs text-subtle">(Primary)</span>
 											{/if}
 										</span>
 									</label>
 								{/each}
 							</div>
-							<p class="text-xs text-gray-500 mt-1">
+							<p class="mt-1 text-xs text-subtle">
 								Selected: {selectedCalendarIds.size} of {googleCalendars.length}
 							</p>
 						{/if}
@@ -278,13 +278,13 @@
 
 				<!-- Send calendar invite via -->
 				<div>
-					<label for="inviteCalendar" class="block text-sm font-medium text-gray-700 mb-1">
+					<label for="inviteCalendar" class="mb-1 block text-sm font-medium text-foreground">
 						Send calendar invite via
 					</label>
 					<select
 						id="inviteCalendar"
 						bind:value={inviteCalendar}
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+						class="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-foreground transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 					>
 						{#if hasGoogle}
 							<option value="google">Google Calendar (Google Meet)</option>
@@ -298,7 +298,7 @@
 				<button
 					onclick={saveCalendarSettings}
 					disabled={saving}
-					class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+					class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-soft transition-all hover:bg-primary-hover hover:shadow-glow disabled:opacity-50"
 				>
 					{saving ? 'Saving...' : 'Save Settings'}
 				</button>

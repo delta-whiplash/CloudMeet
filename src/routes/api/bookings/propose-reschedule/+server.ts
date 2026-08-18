@@ -129,7 +129,7 @@ export const POST = async (event: RequestEvent) => {
 						responseUrl,
 						appUrl,
 						timeFormat,
-						brandColor: booking.brand_color || '#3b82f6'
+						brandColor: booking.brand_color || '#7a5828'
 					},
 					{
 						apiKey: env.EMAILIT_API_KEY,

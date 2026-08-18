@@ -29,94 +29,100 @@
 
 	let sortOrder = $state<'last_booked' | 'upcoming'>('last_booked');
 
-	const sortedBookings = $derived(() => {
+	const sortedBookings = $derived.by(() => {
 		if (!bookings) return [];
 		const sorted = [...bookings];
 		if (sortOrder === 'upcoming') {
-			// Sort by start_time ascending, showing soonest meeting first
 			sorted.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
 		}
-		// 'last_booked' keeps the default order (already sorted by created_at DESC from server)
 		return sorted;
 	});
 
-	function getStatusColor(status: string) {
+	function getStatusStyle(status: string) {
 		switch (status) {
 			case 'confirmed':
-				return 'bg-green-100 text-green-800';
+				return 'bg-success-muted text-success';
 			case 'canceled':
-				return 'bg-red-100 text-red-800';
+				return 'bg-danger-muted text-danger';
 			case 'pending':
-				return 'bg-yellow-100 text-yellow-800';
+				return 'bg-warning-muted text-warning';
+			case 'rescheduled':
+				return 'bg-info-muted text-info';
 			default:
-				return 'bg-gray-100 text-gray-800';
+				return 'bg-surface-2 text-muted-foreground';
 		}
 	}
 </script>
 
 <div>
-	<div class="flex justify-between items-center mb-4">
-		<h2 class="text-xl font-bold text-gray-900">Upcoming Bookings</h2>
+	<div class="mb-4 flex items-center justify-between">
+		<h2 class="font-display text-xl font-semibold text-foreground">Bookings</h2>
 		<select
 			bind:value={sortOrder}
-			class="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+			class="rounded-lg border border-border-strong bg-surface px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 		>
 			<option value="last_booked">Last booked</option>
 			<option value="upcoming">Upcoming first</option>
 		</select>
 	</div>
 
-	<div class="space-y-4">
-		{#if sortedBookings().length > 0}
-			{#each sortedBookings() as booking}
-				<div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-					<div class="flex justify-between items-start mb-2">
-						<div>
-							<h3 class="font-semibold text-gray-900">{booking.event_type_name}</h3>
-							<p class="text-sm text-gray-600">{booking.attendee_name}</p>
-							<p class="text-xs text-gray-500">{booking.attendee_email}</p>
+	<div class="space-y-3">
+		{#if sortedBookings.length > 0}
+			{#each sortedBookings as booking (booking.id)}
+				<div class="rounded-xl border border-border bg-surface p-4 shadow-soft">
+					<div class="mb-2 flex items-start justify-between gap-2">
+						<div class="min-w-0">
+							<h3 class="truncate font-semibold text-foreground">{booking.event_type_name}</h3>
+							<p class="truncate text-sm text-muted-foreground">{booking.attendee_name}</p>
+							<p class="truncate text-xs text-subtle">{booking.attendee_email}</p>
 						</div>
-						<div class="flex items-center gap-2">
-							<span class="px-2 py-1 text-xs rounded-full {getStatusColor(booking.status)}">
+						<div class="flex shrink-0 flex-col items-end gap-2">
+							<span class="rounded-full px-2 py-0.5 text-xs font-medium capitalize {getStatusStyle(booking.status)}">
 								{booking.status}
 							</span>
 							{#if booking.status === 'confirmed'}
-								<button
-									onclick={() => onRescheduleClick(booking.id)}
-									class="text-xs text-blue-600 hover:text-blue-700 font-medium"
-								>
-									Reschedule
-								</button>
-								<button
-									onclick={() => onCancelClick(booking.id)}
-									class="text-xs text-red-600 hover:text-red-700 font-medium"
-								>
-									Cancel
-								</button>
+								<div class="flex items-center gap-2 text-xs">
+									<button
+										onclick={() => onRescheduleClick(booking.id)}
+										class="font-medium text-primary transition-opacity hover:opacity-80"
+									>
+										Reschedule
+									</button>
+									<span class="text-subtle">·</span>
+									<button
+										onclick={() => onCancelClick(booking.id)}
+										class="font-medium text-danger transition-opacity hover:opacity-80"
+									>
+										Cancel
+									</button>
+								</div>
 							{/if}
 						</div>
 					</div>
-					<div class="text-sm text-gray-700 mt-2">
-						<p>{formatCompactDateTime(new Date(booking.start_time))}</p>
+					<div class="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+						<svg class="h-3.5 w-3.5 text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						{formatCompactDateTime(new Date(booking.start_time))}
 					</div>
 					{#if booking.attendee_notes}
-						<div class="mt-2 text-sm text-gray-600 bg-gray-50 rounded p-2">
-							<span class="font-medium">Message:</span> {booking.attendee_notes}
+						<div class="mt-2 rounded-lg bg-surface-2 p-2 text-sm text-muted-foreground">
+							<span class="font-medium text-foreground">Message:</span> {booking.attendee_notes}
 						</div>
 					{/if}
 					{#if booking.status === 'canceled'}
-						<div class="mt-2 text-sm text-red-600 bg-red-50 rounded p-2">
+						<div class="mt-2 rounded-lg bg-danger-muted p-2 text-sm text-danger">
 							<span class="font-medium">Cancelled by {booking.canceled_by === 'host' ? 'you' : 'attendee'}</span>
 							{#if booking.cancellation_reason}
-								<span class="text-red-500">: {booking.cancellation_reason}</span>
+								<span>: {booking.cancellation_reason}</span>
 							{/if}
 						</div>
 					{/if}
 				</div>
 			{/each}
 		{:else}
-			<div class="bg-white rounded-lg shadow-sm p-8 text-center border border-gray-200">
-				<p class="text-gray-600">No bookings yet</p>
+			<div class="rounded-xl border border-dashed border-border bg-surface p-8 text-center">
+				<p class="text-muted-foreground">No bookings yet</p>
 			</div>
 		{/if}
 	</div>

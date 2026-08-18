@@ -81,7 +81,7 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 			inviteCalendar: booking.invite_calendar || 'google',
 			hostName: booking.host_name,
 			profileImage: booking.profile_image,
-			brandColor: booking.brand_color || '#3b82f6'
+			brandColor: booking.brand_color || '#7a5828'
 		},
 		timeFormat,
 		appUrl: env.APP_URL || ''

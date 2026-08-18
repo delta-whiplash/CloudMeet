@@ -19,7 +19,7 @@ export function buildSingleQueryAvailabilityParams(eventSlug: string, dayOfWeek:
 			SELECT id, timezone, settings FROM users LIMIT 1
 		),
 		target_event AS (
-			SELECT id, duration_minutes, availability_calendars
+			SELECT event_types.id, duration_minutes, availability_calendars
 			FROM event_types, target_user
 			WHERE user_id = target_user.id AND slug = ? AND is_active = 1
 		)

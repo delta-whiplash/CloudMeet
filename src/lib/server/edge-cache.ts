@@ -28,7 +28,9 @@ export async function getCachedResponse(request: Request): Promise<Response | nu
 		if (typeof caches !== 'undefined' && (caches as any).default) {
 			const cache = (caches as any).default;
 			const match = await cache.match(request);
-			if (match) return match;
+			// Cache API responses have immutable headers — reconstruct so callers
+			// (e.g. SvelteKit) can set headers without "Can't modify immutable headers".
+			if (match) return new Response(match.body, match);
 		}
 	} catch (err) {
 		console.warn('Cache API match error:', err);
@@ -44,7 +46,10 @@ export async function cacheResponse(
 	try {
 		if (typeof caches !== 'undefined' && (caches as any).default) {
 			const cache = (caches as any).default;
-			const cachedResponse = new Response(response.body, response);
+			// Clone so the original response (still returned to the client) keeps an
+			// unlocked body stream. A fresh clone from a programmatically-built
+			// Response has mutable headers.
+			const cachedResponse = response.clone();
 			cachedResponse.headers.set('Cache-Control', `public, max-age=${ttlSeconds}, s-maxage=${ttlSeconds}`);
 			await cache.put(request, cachedResponse);
 		}

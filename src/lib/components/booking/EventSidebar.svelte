@@ -1,36 +1,83 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import type { BrandColors } from '$lib/utils/colorUtils';
-	import { formatSelectedDate } from '$lib/utils/dateFormatters';
+
+	interface EventTypeItem {
+		id: string;
+		slug?: string;
+		name: string;
+		duration: number;
+		description?: string | null;
+	}
 
 	interface Props {
 		user: {
 			profileImage?: string | null;
 			name?: string;
+			role?: string;
 		} | null;
 		eventType: {
+			id?: string;
 			name: string;
 			duration: number;
 			description?: string | null;
 			cover_image?: string | null;
 			invite_calendar?: string | null;
 		} | null;
-		selectedDate: string | null;
-		selectedSlot: { start: string; end: string } | null;
-		brandColor: string;
-		formatTime: (isoStr: string) => string;
+		eventTypes?: EventTypeItem[];
+		selectedMeetingId?: string | null;
+		onSelectMeeting?: (type: EventTypeItem) => void;
+		selectedDate?: string | null;
+		selectedSlot?: { start: string; end: string } | null;
+		brandColor?: string;
+		formatTime?: (isoStr: string) => string;
+		selectedTimezone?: string;
+		timezoneLabel?: string;
+		onSelectTimezone?: (tz: string, label: string) => void;
+		use24h?: boolean;
+		onToggleTimeFormat?: () => void;
+		lang?: 'fr' | 'en';
+		onSetLanguage?: (lang: 'fr' | 'en') => void;
 	}
 
 	let {
 		user,
 		eventType,
-		selectedDate,
-		selectedSlot,
-		brandColor,
-		formatTime
+		eventTypes = [],
+		selectedMeetingId = null,
+		onSelectMeeting,
+		selectedDate = null,
+		selectedSlot = null,
+		brandColor = '#7a5828',
+		formatTime,
+		selectedTimezone = 'Europe/Paris',
+		timezoneLabel = 'Paris (UTC+2)',
+		onSelectTimezone,
+		use24h = true,
+		onToggleTimeFormat,
+		lang = 'fr',
+		onSetLanguage
 	}: Props = $props();
 
-	// Sanitize event description to prevent XSS (only in browser, SSR uses raw since admin-entered)
+	let showTzDropdown = $state(false);
+
+	function toggleTzDropdown() {
+		showTzDropdown = !showTzDropdown;
+	}
+
+	function selectTz(tz: string, label: string) {
+		if (onSelectTimezone) {
+			onSelectTimezone(tz, label);
+		}
+		showTzDropdown = false;
+	}
+
+	function handleWindowClick(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		if (showTzDropdown && !target.closest('#tz-menu-container-side')) {
+			showTzDropdown = false;
+		}
+	}
+
 	let sanitizedDescription = $state('');
 	$effect(() => {
 		if (eventType?.description) {
@@ -39,7 +86,6 @@
 					sanitizedDescription = DOMPurify.sanitize(eventType.description!);
 				});
 			} else {
-				// During SSR, escape basic HTML entities as a fallback
 				sanitizedDescription = eventType.description
 					.replace(/&/g, '&amp;')
 					.replace(/</g, '&lt;')
@@ -50,65 +96,250 @@
 		}
 	});
 
+	const fr = $derived(lang === 'fr');
 	const meetingLabel = eventType?.invite_calendar === 'outlook' ? 'Microsoft Teams' : 'Google Meet';
+
+	const defaultOptions = $derived<EventTypeItem[]>([
+		{
+			id: '15min',
+			name: fr ? 'Point Rapide' : 'Quick Catch-up',
+			duration: 15,
+			description: fr ? 'Alignement & question directe' : 'Quick alignment & direct questions'
+		},
+		{
+			id: '30min',
+			name: fr ? 'Consultation Stratégique' : 'Strategy Session',
+			duration: 30,
+			description: fr ? "Revue d'architecture & conseils" : 'Architecture review & advice'
+		},
+		{
+			id: '60min',
+			name: fr ? 'Atelier Deep-Dive' : 'Deep-Dive Workshop',
+			duration: 60,
+			description: fr ? 'Audit complet & accompagnement' : 'Comprehensive audit & guidance'
+		}
+	]);
+
+	const displayOptions = $derived(eventTypes.length > 0 ? eventTypes : defaultOptions);
+
+	function getInitials(name?: string) {
+		if (!name) return 'AV';
+		const parts = name.trim().split(' ');
+		if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+		return name.slice(0, 2).toUpperCase();
+	}
 </script>
 
-<div class="w-72 border-r border-gray-200 flex flex-col flex-shrink-0">
-	{#if eventType?.cover_image}
-		<div class="p-6 pb-4 flex justify-center">
-			<img src={eventType.cover_image} alt="" class="max-h-16 w-auto object-contain" />
-		</div>
-		<div class="border-b border-gray-200 mx-6"></div>
-	{/if}
+<svelte:window onclick={handleWindowClick} />
 
-	<div class="flex-1 p-6">
-		<div class="mb-6">
-			{#if user?.profileImage}
-				<img src={user.profileImage} alt={user.name} class="w-12 h-12 rounded-full object-cover mb-3" />
-			{:else}
-				<div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg mb-3" style="background-color: {brandColor}">
-					{user?.name?.charAt(0) || 'M'}
-				</div>
-			{/if}
-			<p class="text-sm font-medium text-gray-600 mb-1">{user?.name || 'Host'}</p>
-			<h1 class="text-2xl font-bold text-gray-900">{eventType?.name || 'Meeting'}</h1>
-		</div>
-
-		<div class="space-y-4 text-sm text-gray-600">
-			<div class="flex items-center gap-3">
-				<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-				</svg>
-				<span>{eventType?.duration} min</span>
-			</div>
-			<div class="flex items-center gap-3">
-				<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-				</svg>
-				<span>{meetingLabel}</span>
-			</div>
-		</div>
-
-		{#if eventType?.description}
-			<div class="mt-6 pt-6 border-t border-gray-200">
-				<div class="text-sm text-gray-600 prose prose-sm max-w-none [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1">
-					{@html sanitizedDescription}
-				</div>
-			</div>
+<div
+	id="panel-step-1"
+	class="relative flex h-full w-full min-w-0 flex-col justify-between overflow-hidden bg-surface p-6 sm:p-7 md:p-8"
+>
+	<!-- Top controls -->
+	<div class="absolute right-4 top-4 z-10 flex items-center gap-2">
+		{#if onToggleTimeFormat}
+			<button
+				type="button"
+				onclick={onToggleTimeFormat}
+				class="flex items-center rounded-lg border border-border bg-surface px-2 py-1 font-mono text-xs text-muted-foreground transition-colors hover:bg-surface-2"
+				title={fr ? 'Format horaire' : 'Time format'}
+			>
+				{use24h ? '24h' : '12h'}
+			</button>
 		{/if}
 
-		{#if selectedDate && selectedSlot}
-			<div class="mt-6 pt-6 border-t border-gray-200">
-				<div class="flex items-center gap-3 text-sm">
-					<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-					</svg>
-					<div>
-						<p class="font-medium text-gray-900">{formatTime(selectedSlot.start)} - {formatTime(selectedSlot.end)}</p>
-						<p class="text-gray-500">{formatSelectedDate(selectedDate)}</p>
+		{#if onSetLanguage}
+			<div class="flex items-center gap-0.5 rounded-lg border border-border bg-surface-2 p-0.5 text-xs font-bold">
+				<button
+					type="button"
+					onclick={() => onSetLanguage('fr')}
+					class="rounded px-2 py-0.5 transition-colors {lang === 'fr' ? 'bg-surface text-foreground shadow-soft' : 'text-muted-foreground hover:text-foreground'}"
+				>
+					FR
+				</button>
+				<button
+					type="button"
+					onclick={() => onSetLanguage('en')}
+					class="rounded px-2 py-0.5 transition-colors {lang === 'en' ? 'bg-surface text-foreground shadow-soft' : 'text-muted-foreground hover:text-foreground'}"
+				>
+					EN
+				</button>
+			</div>
+		{/if}
+	</div>
+
+	<div class="space-y-5 pt-2">
+		<!-- Host profile -->
+		<div class="border-b border-border pb-5 text-center">
+			<div class="relative mb-2 inline-block">
+				{#if user?.profileImage}
+					<img
+						src={user.profileImage}
+						alt={user.name}
+						class="mx-auto h-18 w-18 rounded-full border-4 border-surface-2 object-cover shadow-soft sm:h-20 sm:w-20"
+					/>
+				{:else}
+					<div
+						class="mx-auto flex h-18 w-18 items-center justify-center rounded-full border-4 border-surface-2 text-xl font-bold text-primary-foreground shadow-soft sm:h-20 sm:w-20"
+						style="background: var(--brand-color, var(--primary))"
+					>
+						{getInitials(user?.name)}
 					</div>
-				</div>
+				{/if}
+			</div>
+			<h2 class="font-display text-xl font-semibold tracking-tight text-foreground">
+				{user?.name || 'Alex Vance'}
+			</h2>
+			<p class="mt-0.5 text-xs font-medium text-muted-foreground">
+				{user?.role || (fr ? 'Architecture Product & Stratégie' : 'Product Architecture & Strategy')}
+			</p>
+		</div>
+
+		<div>
+			<span
+				class="mb-1 block text-xs font-bold uppercase tracking-wider"
+				style="color: var(--brand-color, var(--primary))"
+			>
+				{fr ? 'Étape 1' : 'Step 1'}
+			</span>
+			<h3 class="font-display text-base font-semibold text-foreground">
+				{fr ? 'Type de rendez-vous' : 'Appointment Type'}
+			</h3>
+			<p class="mt-1 text-xs text-muted-foreground">
+				{fr
+					? 'Sélectionnez la formule souhaitée pour afficher les disponibilités.'
+					: 'Select a meeting duration to view available calendar slots.'}
+			</p>
+		</div>
+
+		<!-- Event type options -->
+		<div class="space-y-3">
+			{#each displayOptions as option (option.id)}
+				{@const isSelected =
+					selectedMeetingId === option.id ||
+					(eventType && eventType.duration === option.duration && !selectedMeetingId)}
+				<button
+					type="button"
+					onclick={() => onSelectMeeting && onSelectMeeting(option)}
+					class="group flex w-full cursor-pointer items-center justify-between rounded-xl p-3.5 text-left transition-all sm:p-4 {isSelected
+						? 'border-2'
+						: 'standard-interactive'}"
+					style={isSelected
+						? 'border-color: var(--brand-color, var(--primary)); background: color-mix(in oklab, var(--brand-color, var(--primary)) 10%, var(--surface));'
+						: ''}
+				>
+					<div class="flex min-w-0 items-center gap-3.5">
+						<div
+							class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border text-xs font-bold transition-colors"
+							style={isSelected
+								? 'background: var(--brand-color, var(--primary)); color: var(--primary-foreground); border-color: var(--brand-color, var(--primary));'
+								: 'background: var(--surface-2); color: var(--muted-foreground); border-color: var(--border);'}
+						>
+							{option.duration}m
+						</div>
+						<div class="min-w-0 flex-1">
+							<div class="truncate text-sm font-semibold text-foreground">{option.name}</div>
+							{#if option.description}
+								<div class="truncate text-xs text-muted-foreground">{option.description}</div>
+							{/if}
+						</div>
+					</div>
+					<svg
+						class="ml-2 h-4 w-4 flex-shrink-0 transition-all"
+						style={isSelected ? 'color: var(--brand-color, var(--primary))' : 'color: var(--subtle)'}
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+					</svg>
+				</button>
+			{/each}
+		</div>
+
+		{#if sanitizedDescription && (!eventTypes || eventTypes.length === 0)}
+			<div class="prose prose-sm mt-2 max-w-none border-t border-border pt-2 text-xs text-muted-foreground">
+				{@html sanitizedDescription}
 			</div>
 		{/if}
+	</div>
+
+	<!-- Metadata -->
+	<div class="mt-6 space-y-2 border-t border-border pt-5 text-xs text-muted-foreground">
+		<div class="flex items-center justify-between">
+			<span class="text-subtle">{fr ? 'Format :' : 'Format:'}</span>
+			<span class="flex items-center gap-1.5 font-semibold text-foreground">
+				<svg class="h-4 w-4 flex-shrink-0" style="color: var(--brand-color, var(--primary))" fill="currentColor" viewBox="0 0 24 24">
+					<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z" />
+				</svg>
+				<span class="truncate">{meetingLabel}</span>
+			</span>
+		</div>
+
+		<!-- Timezone selector -->
+		<div class="flex items-center justify-between">
+			<span class="text-subtle">{fr ? 'Fuseau horaire :' : 'Timezone:'}</span>
+			<div id="tz-menu-container-side" class="relative">
+				<button
+					type="button"
+					onclick={toggleTzDropdown}
+					class="flex items-center gap-1 font-semibold text-foreground transition-colors hover:opacity-80"
+				>
+					<svg class="h-3.5 w-3.5 flex-shrink-0 text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+					</svg>
+					<span class="truncate">{timezoneLabel}</span>
+					<svg class="h-3 w-3 flex-shrink-0 text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+					</svg>
+				</button>
+
+				{#if showTzDropdown}
+					<div class="absolute bottom-6 right-0 z-40 w-56 rounded-lg border border-border bg-surface py-1 text-xs shadow-card">
+						<div class="border-b border-border px-3 py-1 text-[10px] font-bold uppercase text-subtle">
+							{fr ? 'Fuseaux Horaires' : 'Timezones'}
+						</div>
+						<button
+							type="button"
+							onclick={() => selectTz('Europe/Paris', 'Paris (UTC+2)')}
+							class="flex w-full items-center justify-between px-3 py-2 text-left text-foreground transition-colors hover:bg-surface-2"
+						>
+							<span>Europe / Paris</span>
+							<span class="font-mono text-[10px] text-subtle">UTC+2</span>
+						</button>
+						<button
+							type="button"
+							onclick={() => selectTz('America/New_York', 'New York (EDT)')}
+							class="flex w-full items-center justify-between px-3 py-2 text-left text-foreground transition-colors hover:bg-surface-2"
+						>
+							<span>America / New York</span>
+							<span class="font-mono text-[10px] text-subtle">UTC-4</span>
+						</button>
+						<button
+							type="button"
+							onclick={() => selectTz('Europe/London', 'London (BST)')}
+							class="flex w-full items-center justify-between px-3 py-2 text-left text-foreground transition-colors hover:bg-surface-2"
+						>
+							<span>Europe / London</span>
+							<span class="font-mono text-[10px] text-subtle">UTC+1</span>
+						</button>
+						<button
+							type="button"
+							onclick={() => selectTz('Asia/Tokyo', 'Tokyo (JST)')}
+							class="flex w-full items-center justify-between px-3 py-2 text-left text-foreground transition-colors hover:bg-surface-2"
+						>
+							<span>Asia / Tokyo</span>
+							<span class="font-mono text-[10px] text-subtle">UTC+9</span>
+						</button>
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<div class="flex items-center justify-between">
+			<span class="text-subtle">{fr ? 'Confirmation :' : 'Confirmation:'}</span>
+			<span class="font-semibold text-foreground">{fr ? 'Instantanée' : 'Instant'}</span>
+		</div>
 	</div>
 </div>

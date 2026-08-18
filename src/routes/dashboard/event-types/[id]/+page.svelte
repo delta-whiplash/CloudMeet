@@ -119,32 +119,30 @@
 	}
 </script>
 
-<div class="min-h-screen bg-gray-50">
+<div class="min-h-screen bg-background">
 	<!-- Header -->
-	<header class="bg-white shadow-sm">
-		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-			<div class="flex items-center gap-4">
-				<a href="/dashboard" class="text-gray-600 hover:text-gray-900">
-					← Back to Dashboard
-				</a>
-				<h1 class="text-2xl font-bold text-gray-900">Edit Event Type</h1>
-			</div>
+	<header class="sticky top-0 z-30 border-b border-border bg-surface/80 backdrop-blur-xl">
+		<div class="mx-auto flex h-16 w-full max-w-3xl items-center gap-4 px-4 sm:px-6">
+			<a href="/dashboard" class="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+				← Back to Dashboard
+			</a>
+			<h1 class="font-display text-lg font-semibold text-foreground">Edit Event Type</h1>
 		</div>
 	</header>
 
-	<main class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+	<main class="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
 		{#if form?.error}
-			<div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-6">
+			<div class="mb-6 rounded-lg border border-danger/30 bg-danger-muted p-4 text-sm font-medium text-danger">
 				Error: {form.error}
 			</div>
 		{/if}
 
-		<div class="bg-white rounded-lg shadow-sm p-6">
+		<div class="rounded-2xl border border-border bg-surface p-6 shadow-soft">
 			<form method="POST" use:enhance={handleSubmit}>
 				<div class="space-y-6">
 					<!-- Event Name -->
 					<div>
-						<label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+						<label for="name" class="mb-2 block text-sm font-medium text-foreground">
 							Event Name *
 						</label>
 						<input
@@ -154,13 +152,13 @@
 							bind:value={name}
 							required
 							placeholder="e.g., 30 Minute Meeting"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+							class="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-foreground transition-colors placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 						/>
 					</div>
 
 					<!-- Slug -->
 					<div>
-						<label for="slug" class="block text-sm font-medium text-gray-700 mb-2">
+						<label for="slug" class="mb-2 block text-sm font-medium text-foreground">
 							URL Slug *
 						</label>
 						<input
@@ -171,16 +169,16 @@
 							required
 							pattern="[a-z0-9\-]+"
 							placeholder="e.g., 30min"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+							class="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-foreground transition-colors placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 						/>
-						<p class="text-xs text-gray-500 mt-1">
+						<p class="mt-1 text-xs text-subtle">
 							Only lowercase letters, numbers, and hyphens. This will be part of your booking URL.
 						</p>
 					</div>
 
 					<!-- Duration -->
 					<div>
-						<label for="duration" class="block text-sm font-medium text-gray-700 mb-2">
+						<label for="duration" class="mb-2 block text-sm font-medium text-foreground">
 							Duration (minutes) *
 						</label>
 						<select
@@ -188,7 +186,7 @@
 							name="duration"
 							bind:value={duration}
 							required
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+							class="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-foreground transition-colors placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 						>
 							<option value={15}>15 minutes</option>
 							<option value={30}>30 minutes</option>
@@ -201,7 +199,7 @@
 
 					<!-- Description -->
 					<div>
-						<label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+						<label for="description" class="mb-2 block text-sm font-medium text-foreground">
 							Description
 						</label>
 						<SimpleWysiwyg
@@ -213,33 +211,33 @@
 
 					<!-- Cover Image -->
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-2">
+						<label class="mb-2 block text-sm font-medium text-foreground">
 							Cover Image
 						</label>
-						<p class="text-xs text-gray-500 mb-3">
+						<p class="mb-3 text-xs text-subtle">
 							This image will be displayed at the top of your booking page (like Calendly)
 						</p>
 
 						{#if coverImage}
-							<div class="relative mb-3 p-4 bg-gray-100 rounded-lg">
+							<div class="relative mb-3 rounded-lg bg-surface-2 p-4">
 								<img
 									src={coverImage}
 									alt="Cover preview"
-									class="max-h-20 w-auto object-contain mx-auto"
+									class="mx-auto max-h-20 w-auto object-contain"
 								/>
 								<button
 									type="button"
 									onclick={removeCoverImage}
-									class="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full hover:bg-red-700 transition"
+									class="absolute right-2 top-2 rounded-full bg-danger p-1.5 text-primary-foreground transition-colors hover:bg-danger/90"
 								>
-									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
 									</svg>
 								</button>
 							</div>
 						{/if}
 
-						<label class="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition {coverImage ? 'hidden' : ''}">
+						<label class="flex h-32 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border-strong transition hover:border-primary hover:bg-primary-muted {coverImage ? 'hidden' : ''}">
 							<input
 								type="file"
 								accept="image/*"
@@ -248,17 +246,17 @@
 								disabled={uploadingCover}
 							/>
 							{#if uploadingCover}
-								<div class="flex items-center gap-2 text-gray-500">
-									<div class="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+								<div class="flex items-center gap-2 text-muted-foreground">
+									<div class="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
 									<span>Uploading...</span>
 								</div>
 							{:else}
 								<div class="text-center">
-									<svg class="w-8 h-8 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="mx-auto mb-2 h-8 w-8 text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
 									</svg>
-									<p class="text-sm text-gray-500">Click to upload cover image</p>
-									<p class="text-xs text-gray-400">Max 2MB</p>
+									<p class="text-sm text-muted-foreground">Click to upload cover image</p>
+									<p class="text-xs text-subtle">Max 2MB</p>
 								</div>
 							{/if}
 						</label>
@@ -267,19 +265,19 @@
 
 					<!-- Calendar Settings -->
 					{#if hasGoogle || hasOutlook}
-						<div class="border-t border-gray-200 pt-6">
-							<h3 class="text-sm font-medium text-gray-900 mb-4">Calendar Settings</h3>
+						<div class="border-t border-border pt-6">
+							<h3 class="mb-4 text-sm font-medium text-foreground">Calendar Settings</h3>
 
 							<!-- Show current global settings -->
-							<div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
-								<p class="text-gray-600 mb-1">
-									<span class="font-medium">Check availability from:</span> {getAvailabilityLabel(getGlobalAvailability())}
+							<div class="mb-4 rounded-lg bg-surface-2 p-3 text-sm">
+								<p class="mb-1 text-muted-foreground">
+									<span class="font-medium text-foreground">Check availability from:</span> {getAvailabilityLabel(getGlobalAvailability())}
 								</p>
-								<p class="text-gray-600">
-									<span class="font-medium">Send invite via:</span> {getInviteLabel(getGlobalInviteCalendar())}
+								<p class="text-muted-foreground">
+									<span class="font-medium text-foreground">Send invite via:</span> {getInviteLabel(getGlobalInviteCalendar())}
 								</p>
-								<p class="text-xs text-gray-500 mt-2">
-									These are your global settings. <a href="/dashboard" class="text-blue-600 hover:underline">Change in Dashboard</a>
+								<p class="mt-2 text-xs text-subtle">
+									These are your global settings. <a href="/dashboard" class="text-primary hover:underline">Change in Dashboard</a>
 								</p>
 							</div>
 
@@ -290,9 +288,9 @@
 									id="override_calendar_settings"
 									name="override_calendar_settings"
 									bind:checked={overrideCalendarSettings}
-									class="h-4 w-4 text-blue-600 rounded border-gray-300"
+									class="h-4 w-4 rounded border-border-strong text-primary focus:ring-primary/20"
 								/>
-								<label for="override_calendar_settings" class="ml-2 text-sm text-gray-700">
+								<label for="override_calendar_settings" class="ml-2 text-sm text-muted-foreground">
 									Override global calendar settings for this event type
 								</label>
 							</div>
@@ -300,14 +298,14 @@
 							{#if overrideCalendarSettings}
 								<!-- Availability Calendars -->
 								<div class="mb-4">
-									<label for="availability_calendars" class="block text-sm font-medium text-gray-700 mb-2">
+									<label for="availability_calendars" class="mb-2 block text-sm font-medium text-foreground">
 										Check availability from
 									</label>
 									<select
 										id="availability_calendars"
 										name="availability_calendars"
 										bind:value={availabilityCalendars}
-										class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+										class="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-foreground transition-colors placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 									>
 										{#if hasGoogle && hasOutlook}
 											<option value="both">Both Google & Outlook calendars</option>
@@ -319,21 +317,21 @@
 											<option value="outlook">Outlook Calendar only</option>
 										{/if}
 									</select>
-									<p class="text-xs text-gray-500 mt-1">
+									<p class="mt-1 text-xs text-subtle">
 										Which calendars to check when showing available time slots
 									</p>
 								</div>
 
 								<!-- Invite Calendar -->
 								<div>
-									<label for="invite_calendar" class="block text-sm font-medium text-gray-700 mb-2">
+									<label for="invite_calendar" class="mb-2 block text-sm font-medium text-foreground">
 										Send calendar invite via
 									</label>
 									<select
 										id="invite_calendar"
 										name="invite_calendar"
 										bind:value={inviteCalendar}
-										class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+										class="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-foreground transition-colors placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 									>
 										{#if hasGoogle}
 											<option value="google">Google Calendar (with Google Meet)</option>
@@ -342,16 +340,16 @@
 											<option value="outlook">Outlook Calendar (with Microsoft Teams)</option>
 										{/if}
 									</select>
-									<p class="text-xs text-gray-500 mt-1">
+									<p class="mt-1 text-xs text-subtle">
 										The attendee will receive an invite from this calendar with the meeting link
 									</p>
 								</div>
 							{/if}
 						</div>
 					{:else}
-						<div class="border-t border-gray-200 pt-6">
-							<p class="text-sm text-gray-500">
-								Connect a calendar in <a href="/dashboard" class="text-blue-600 hover:underline">Dashboard Settings</a> to configure calendar options.
+						<div class="border-t border-border pt-6">
+							<p class="text-sm text-muted-foreground">
+								Connect a calendar in <a href="/dashboard" class="text-primary hover:underline">Dashboard Settings</a> to configure calendar options.
 							</p>
 						</div>
 					{/if}
@@ -363,9 +361,9 @@
 							id="is_active"
 							name="is_active"
 							bind:checked={isActive}
-							class="h-4 w-4 text-blue-600 rounded border-gray-300"
+							class="h-4 w-4 rounded border-border-strong text-primary focus:ring-primary/20"
 						/>
-						<label for="is_active" class="ml-2 text-sm text-gray-700">
+						<label for="is_active" class="ml-2 text-sm text-muted-foreground">
 							Active (allow people to book this event type)
 						</label>
 					</div>
@@ -375,13 +373,13 @@
 						<button
 							type="submit"
 							disabled={saving}
-							class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+							class="rounded-lg bg-primary px-6 py-2 font-semibold text-primary-foreground shadow-soft transition-all hover:bg-primary-hover hover:shadow-glow disabled:opacity-50"
 						>
 							{saving ? 'Saving...' : 'Save Changes'}
 						</button>
 						<a
 							href="/dashboard"
-							class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+							class="rounded-lg border border-border bg-surface px-6 py-2 font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
 						>
 							Cancel
 						</a>

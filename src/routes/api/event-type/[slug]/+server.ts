@@ -70,7 +70,7 @@ export const GET: RequestHandler = async ({ params, platform }) => {
 			user: {
 				name: user.name,
 				profileImage: user.profile_image,
-				brandColor: user.brand_color || '#3b82f6',
+				brandColor: user.brand_color || '#7a5828',
 				timeFormat: userSettings.timeFormat || '12h'
 			}
 		});

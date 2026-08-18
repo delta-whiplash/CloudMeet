@@ -47,25 +47,36 @@
 		cancelError = '';
 		onClose();
 	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (show && e.key === 'Escape') handleClose();
+	}
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 {#if show && booking}
-	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-		<div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+		<div
+			role="dialog"
+			aria-modal="true"
+			aria-label="Cancel booking"
+			class="w-full max-w-md rounded-2xl border border-border bg-surface shadow-card"
+		>
 			<div class="p-6">
-				<h3 class="text-lg font-semibold text-gray-900 mb-2">Cancel Booking</h3>
-				<p class="text-sm text-gray-600 mb-4">
+				<h3 class="font-display mb-2 text-lg font-semibold text-foreground">Cancel Booking</h3>
+				<p class="mb-4 text-sm text-muted-foreground">
 					Cancel <strong>{booking.event_type_name}</strong> with <strong>{booking.attendee_name}</strong> on {formatCompactDateTime(new Date(booking.start_time))}?
 				</p>
 
 				{#if cancelError}
-					<div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 text-sm mb-4">
+					<div class="mb-4 rounded-lg border border-danger/30 bg-danger-muted p-3 text-sm font-medium text-danger">
 						{cancelError}
 					</div>
 				{/if}
 
 				<div class="mb-4">
-					<label for="cancel-message" class="block text-sm font-medium text-gray-700 mb-1">
+					<label for="cancel-message" class="mb-1 block text-sm font-medium text-foreground">
 						Message to attendee (optional)
 					</label>
 					<textarea
@@ -73,22 +84,22 @@
 						bind:value={cancelMessage}
 						placeholder="Let them know why you're cancelling..."
 						rows="3"
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
+						class="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-foreground transition-colors placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
 					></textarea>
-					<p class="text-xs text-gray-500 mt-1">This message will be included in the cancellation email</p>
+					<p class="mt-1 text-xs text-subtle">This message will be included in the cancellation email</p>
 				</div>
 
 				<div class="flex justify-end gap-3">
 					<button
 						onclick={handleClose}
-						class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+						class="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
 					>
 						Keep Booking
 					</button>
 					<button
 						onclick={handleCancel}
 						disabled={cancelling}
-						class="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition disabled:opacity-50"
+						class="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-primary-foreground shadow-soft transition-all hover:bg-danger/90 disabled:opacity-50"
 					>
 						{cancelling ? 'Cancelling...' : 'Cancel Booking'}
 					</button>
